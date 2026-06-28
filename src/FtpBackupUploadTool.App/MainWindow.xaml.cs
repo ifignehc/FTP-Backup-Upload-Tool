@@ -13,6 +13,8 @@ namespace FtpBackupUploadTool.App;
 
 public partial class MainWindow : Window
 {
+    private readonly AppConfigStore configStore = new(AppConfigStore.GetDefaultConfigPath());
+    private readonly DpapiPasswordProtector passwordProtector = new();
     private readonly MainViewModel viewModel;
 
     public MainWindow()
@@ -40,8 +42,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            var store = new AppConfigStore(AppConfigStore.GetDefaultConfigPath());
-            var config = await store.LoadAsync(CancellationToken.None);
+            var config = await configStore.LoadAsync(CancellationToken.None);
             var selected = config.Processes.FirstOrDefault();
 
             if (selected is null)
@@ -50,9 +51,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var factory = new ProcessRuntimeFactory(new DpapiPasswordProtector());
-            viewModel.LoadProcess(selected, factory.Create(selected));
-            viewModel.AddLog($"已加载配置：{selected.Name}");
+            LoadProcessRuntime(selected);
         }
         catch (Exception ex)
         {
@@ -60,16 +59,38 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnSettingsRequested(object? sender, EventArgs e)
+    private async void OnSettingsRequested(object? sender, EventArgs e)
     {
-        var settingsWindow = new SettingsWindow
+        var settingsWindow = new SettingsWindow(configStore, passwordProtector, viewModel.CurrentProcess)
         {
             Owner = this
         };
 
         if (settingsWindow.ShowDialog() == true)
         {
-            viewModel.AddLog("设置窗口已关闭");
+            try
+            {
+                var savedProcess = settingsWindow.SavedProcess
+                    ?? (await configStore.LoadAsync(CancellationToken.None)).Processes.FirstOrDefault();
+                if (savedProcess is null)
+                {
+                    viewModel.AddLog("[Warning] 设置已关闭，但没有找到可加载的工序配置");
+                    return;
+                }
+
+                LoadProcessRuntime(savedProcess);
+            }
+            catch (Exception ex)
+            {
+                viewModel.AddLog($"[Error] 加载新配置失败：{ex.Message}");
+            }
         }
+    }
+
+    private void LoadProcessRuntime(FtpBackupUploadTool.Core.Models.ProcessConfig process)
+    {
+        var factory = new ProcessRuntimeFactory(passwordProtector);
+        viewModel.LoadProcess(process, factory.Create(process));
+        viewModel.AddLog($"已加载配置：{process.Name}");
     }
 }

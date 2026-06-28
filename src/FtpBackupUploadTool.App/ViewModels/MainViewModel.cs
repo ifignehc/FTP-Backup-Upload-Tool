@@ -126,6 +126,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public ObservableCollection<string> Logs { get; }
 
+    public ProcessConfig? CurrentProcess => currentProcess;
+
     public ICommand BackupCommand { get; }
 
     public ICommand UploadCommand { get; }

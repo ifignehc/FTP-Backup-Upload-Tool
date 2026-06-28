@@ -101,14 +101,28 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var request = CreateRequest(path, WebRequestMethods.Ftp.UploadFile);
-        await using (var destination = await GetRequestStreamAsync(request, cancellationToken))
+        var tempPath = GetTempUploadPath(path);
+        try
         {
-            await source.CopyToAsync(destination, cancellationToken);
-        }
+            var request = CreateRequest(tempPath, WebRequestMethods.Ftp.UploadFile);
+            await using (var destination = await GetRequestStreamAsync(request, cancellationToken))
+            {
+                await source.CopyToAsync(destination, cancellationToken);
+            }
 
-        cancellationToken.ThrowIfCancellationRequested();
-        using var response = await GetResponseAsync(request, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            using (await GetResponseAsync(request, cancellationToken))
+            {
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            await ReplaceRemoteFileAsync(tempPath, path);
+        }
+        catch
+        {
+            await TryDeleteFileAsync(tempPath, CancellationToken.None);
+            throw;
+        }
     }
 
     public async Task DeleteFileAsync(RelativePath path, CancellationToken cancellationToken)
@@ -267,6 +281,73 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         return request;
     }
 
+    private async Task ReplaceRemoteFileAsync(RelativePath tempPath, RelativePath finalPath)
+    {
+        try
+        {
+            await RenameAsync(tempPath, finalPath, CancellationToken.None);
+            return;
+        }
+        catch (WebException ex) when (IsUnavailableForRename(ex))
+        {
+        }
+
+        var backupPath = GetTempUploadPath(finalPath);
+        var movedExistingFile = false;
+
+        try
+        {
+            await RenameAsync(finalPath, backupPath, CancellationToken.None);
+            movedExistingFile = true;
+            await RenameAsync(tempPath, finalPath, CancellationToken.None);
+            await TryDeleteFileAsync(backupPath, CancellationToken.None);
+        }
+        catch
+        {
+            if (movedExistingFile)
+            {
+                await TryRestoreBackupAsync(backupPath, finalPath);
+            }
+
+            throw;
+        }
+    }
+
+    private async Task RenameAsync(RelativePath sourcePath, RelativePath targetPath, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var request = CreateRequest(sourcePath, WebRequestMethods.Ftp.Rename);
+        request.RenameTo = GetLastPathSegment(targetPath.Value);
+        using var response = await GetResponseAsync(request, cancellationToken);
+    }
+
+    private async Task TryDeleteFileAsync(RelativePath path, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await DeleteFileAsync(path, cancellationToken);
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task TryRestoreBackupAsync(RelativePath backupPath, RelativePath finalPath)
+    {
+        try
+        {
+            if (!await FileExistsAsync(finalPath, CancellationToken.None)
+                && await FileExistsAsync(backupPath, CancellationToken.None))
+            {
+                await RenameAsync(backupPath, finalPath, CancellationToken.None);
+            }
+        }
+        catch
+        {
+        }
+    }
+
     private static async Task<FtpWebResponse> GetResponseAsync(FtpWebRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -305,6 +386,13 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         }
 
         return exception.Response is FtpWebResponse response
+            && response.StatusCode == FtpStatusCode.ActionNotTakenFileUnavailable;
+    }
+
+    private static bool IsUnavailableForRename(WebException exception)
+    {
+        return exception.Status == WebExceptionStatus.ProtocolError
+            && exception.Response is FtpWebResponse response
             && response.StatusCode == FtpStatusCode.ActionNotTakenFileUnavailable;
     }
 
@@ -385,6 +473,14 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         return directory is null
             ? RelativePath.Parse(name)
             : RelativePath.Parse($"{directory.Value}/{name}");
+    }
+
+    private static RelativePath GetTempUploadPath(RelativePath path)
+    {
+        var index = path.Value.LastIndexOf('/');
+        var directory = index < 0 ? string.Empty : path.Value[..(index + 1)];
+        var fileName = index < 0 ? path.Value : path.Value[(index + 1)..];
+        return RelativePath.Parse($"{directory}.{fileName}.{Guid.NewGuid():N}.tmp");
     }
 
     private static string GetLastPathSegment(string value)
