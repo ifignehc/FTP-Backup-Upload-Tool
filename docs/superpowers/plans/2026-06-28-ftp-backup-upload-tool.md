@@ -12,7 +12,7 @@
 
 ## Scope And Prerequisites
 
-The current machine has .NET runtimes but no .NET SDK. The first implementation task must install or make available the .NET 8 SDK before scaffolding.
+The current machine must have a .NET SDK that can create and build `net8.0-windows` WPF projects. .NET 8 SDK is preferred; the installed .NET 11 SDK is acceptable because it supports `net8.0` WPF templates and `net8.0-windows` builds.
 
 The implementation follows the approved spec:
 
@@ -96,7 +96,7 @@ Expected if ready:
 8.0.
 ```
 
-If the command prints nothing, install Microsoft .NET 8 SDK x64 for Windows, reopen PowerShell, and rerun the command until an `8.0` SDK line appears.
+If the command prints nothing, install Microsoft .NET 8 SDK x64 for Windows, reopen PowerShell, and rerun the command until an `8.0` or newer SDK line appears.
 
 - [ ] **Step 2: Create the solution and projects**
 
@@ -105,7 +105,7 @@ Run:
 ```powershell
 dotnet new sln -n FtpBackupUploadTool
 dotnet new classlib -n FtpBackupUploadTool.Core -o src/FtpBackupUploadTool.Core -f net8.0
-dotnet new wpf -n FtpBackupUploadTool.App -o src/FtpBackupUploadTool.App -f net8.0-windows
+dotnet new wpf -n FtpBackupUploadTool.App -o src/FtpBackupUploadTool.App -f net8.0
 dotnet new console -n FtpBackupUploadTool.Tests -o tests/FtpBackupUploadTool.Tests -f net8.0
 dotnet sln FtpBackupUploadTool.sln add src/FtpBackupUploadTool.Core/FtpBackupUploadTool.Core.csproj
 dotnet sln FtpBackupUploadTool.sln add src/FtpBackupUploadTool.App/FtpBackupUploadTool.App.csproj
