@@ -68,9 +68,34 @@ public sealed class LocalMirrorRemoteClient : IRemoteFileClient
         cancellationToken.ThrowIfCancellationRequested();
 
         var fullPath = ToFullPath(path);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath) ?? _root);
-        await using var destination = File.Create(fullPath);
-        await source.CopyToAsync(destination, cancellationToken);
+        var directory = Path.GetDirectoryName(fullPath) ?? _root;
+        Directory.CreateDirectory(directory);
+        var tempPath = Path.Combine(directory, $".{Path.GetFileName(fullPath)}.{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            await using (var destination = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                await source.CopyToAsync(destination, cancellationToken);
+                await destination.FlushAsync(cancellationToken);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (File.Exists(fullPath))
+            {
+                File.Replace(tempPath, fullPath, null);
+            }
+            else
+            {
+                File.Move(tempPath, fullPath);
+            }
+        }
+        catch
+        {
+            DeleteTempFileIfExists(tempPath);
+            throw;
+        }
     }
 
     public Task DeleteFileAsync(RelativePath path, CancellationToken cancellationToken)
@@ -96,5 +121,19 @@ public sealed class LocalMirrorRemoteClient : IRemoteFileClient
         }
 
         return fullPath;
+    }
+
+    private static void DeleteTempFileIfExists(string tempPath)
+    {
+        try
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+        }
+        catch
+        {
+        }
     }
 }

@@ -47,6 +47,30 @@ internal static class RemoteTests
         TestAssert.Equal("existing", File.ReadAllText(target), "canceled upload must not truncate existing file");
     }
 
+    public static void MidStreamFailedUploadPreservesExistingTargetFile()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "ftp-tool-tests", Guid.NewGuid().ToString("N"));
+        var target = Path.Combine(root, "css", "site.css");
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.WriteAllText(target, "existing");
+        var client = new LocalMirrorRemoteClient(root);
+        var relative = RelativePath.Parse("css/site.css");
+        using var source = new FailingReadStream("new-body"u8.ToArray(), 3);
+
+        var failed = false;
+        try
+        {
+            client.UploadAsync(relative, source, CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch (IOException)
+        {
+            failed = true;
+        }
+
+        TestAssert.True(failed, "mid-stream failed upload should throw");
+        TestAssert.Equal("existing", File.ReadAllText(target), "failed upload must preserve existing file");
+    }
+
     public static void CanceledDeleteDoesNotDeleteTargetFile()
     {
         var root = Path.Combine(Path.GetTempPath(), "ftp-tool-tests", Guid.NewGuid().ToString("N"));
@@ -128,5 +152,68 @@ internal static class RemoteTests
             modifiers: null);
         TestAssert.True(constructor is not null, "RelativePath private constructor should exist");
         return (RelativePath)constructor!.Invoke(new object[] { value });
+    }
+
+    private sealed class FailingReadStream : Stream
+    {
+        private readonly byte[] _content;
+        private readonly int _throwAfterBytes;
+        private int _position;
+
+        public FailingReadStream(byte[] content, int throwAfterBytes)
+        {
+            _content = content;
+            _throwAfterBytes = throwAfterBytes;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => _content.Length;
+        public override long Position
+        {
+            get => _position;
+            set => throw new NotSupportedException();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_position >= _throwAfterBytes)
+            {
+                throw new IOException("simulated read failure");
+            }
+
+            var remainingBeforeFailure = _throwAfterBytes - _position;
+            var remainingContent = _content.Length - _position;
+            var bytesRead = Math.Min(Math.Min(count, remainingBeforeFailure), remainingContent);
+            Array.Copy(_content, _position, buffer, offset, bytesRead);
+            _position += bytesRead;
+            return bytesRead;
+        }
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var rented = new byte[buffer.Length];
+            var bytesRead = Read(rented, 0, rented.Length);
+            rented.AsMemory(0, bytesRead).CopyTo(buffer);
+            return ValueTask.FromResult(bytesRead);
+        }
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(Read(buffer, offset, count));
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 }

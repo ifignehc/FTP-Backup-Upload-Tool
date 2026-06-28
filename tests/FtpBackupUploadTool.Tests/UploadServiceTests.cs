@@ -24,6 +24,22 @@ internal static class UploadServiceTests
         TestAssert.Equal("上传完成", result.Logs[0].Message, "successful upload message");
     }
 
+    public static void UploadCopiesRootLevelLocalFileToDraftRoot()
+    {
+        var localRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-local", Guid.NewGuid().ToString("N"));
+        var draftRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-draft", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(localRoot);
+        Directory.CreateDirectory(draftRoot);
+        File.WriteAllText(Path.Combine(localRoot, "readme.txt"), "root-readme");
+
+        var service = new UploadService(new LocalMirrorRemoteClient(draftRoot), localRoot);
+        var result = service.RunAsync(new[] { RelativePath.Parse("readme.txt") }, CancellationToken.None).GetAwaiter().GetResult();
+
+        TestAssert.Equal("root-readme", File.ReadAllText(Path.Combine(draftRoot, "readme.txt")), "root draft file should match local");
+        TestAssert.Equal(1, result.Logs.Count, "one root upload log entry");
+        TestAssert.Equal(OperationLogLevel.Normal, result.Logs[0].Level, "root upload should log normal");
+    }
+
     public static void UploadErrorsWhenDraftParentMissing()
     {
         var localRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-local", Guid.NewGuid().ToString("N"));

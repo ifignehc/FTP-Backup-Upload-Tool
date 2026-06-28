@@ -16,6 +16,7 @@ var tests = new Action[]
     ConfigTests.FailedReplacePreservesExistingConfig,
     RemoteTests.LocalMirrorCanWriteAndRead,
     RemoteTests.CanceledUploadDoesNotCreateOrTruncateTargetFile,
+    RemoteTests.MidStreamFailedUploadPreservesExistingTargetFile,
     RemoteTests.CanceledDeleteDoesNotDeleteTargetFile,
     RemoteTests.CanceledDownloadMissingFileThrowsCancellation,
     RemoteTests.LocalMirrorRejectsSiblingPrefixEscape,
@@ -27,6 +28,7 @@ var tests = new Action[]
     BackupServiceTests.BackupLogWriterCanceledBeforeReplacementPreservesExistingLog,
     BackupServiceTests.CanceledBackupDoesNotCreatePartialFile,
     UploadServiceTests.UploadCopiesLocalFileToDraft,
+    UploadServiceTests.UploadCopiesRootLevelLocalFileToDraftRoot,
     UploadServiceTests.UploadErrorsWhenDraftParentMissing,
     UploadServiceTests.CanceledUploadBeforeFileOpenDoesNotTruncateDraftFile,
     UploadServiceTests.ToLocalPathRejectsSiblingPrefixEscape
