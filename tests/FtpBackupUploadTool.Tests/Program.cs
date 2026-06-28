@@ -4,7 +4,10 @@ var tests = new Action[]
 {
     PathTests.NormalizeRelativePaths,
     PathTests.RejectParentTraversal,
-    PathTests.ParsePathListText
+    PathTests.RejectRootedDrivePath,
+    PathTests.RejectDriveQualifiedPath,
+    PathTests.ParsePathListText,
+    PathTests.ParseCommaSeparatedPathListText
 };
 
 var failures = new List<string>();

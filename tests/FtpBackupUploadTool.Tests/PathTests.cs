@@ -25,6 +25,36 @@ internal static class PathTests
         TestAssert.True(failed, "parent traversal must be rejected");
     }
 
+    public static void RejectRootedDrivePath()
+    {
+        var failed = false;
+        try
+        {
+            RelativePath.Parse("C:/temp/file.txt");
+        }
+        catch (ArgumentException)
+        {
+            failed = true;
+        }
+
+        TestAssert.True(failed, "drive-rooted paths must be rejected");
+    }
+
+    public static void RejectDriveQualifiedPath()
+    {
+        var failed = false;
+        try
+        {
+            RelativePath.Parse("C:temp/file.txt");
+        }
+        catch (ArgumentException)
+        {
+            failed = true;
+        }
+
+        TestAssert.True(failed, "drive-qualified paths must be rejected");
+    }
+
     public static void ParsePathListText()
     {
         var input = "css/site.css\r\n\r\n images\\\\logo.png \r\n";
@@ -32,5 +62,15 @@ internal static class PathTests
         TestAssert.Equal(2, paths.Length, "blank lines should be ignored");
         TestAssert.Equal("css/site.css", paths[0], "first path");
         TestAssert.Equal("images/logo.png", paths[1], "second path");
+    }
+
+    public static void ParseCommaSeparatedPathListText()
+    {
+        var input = "css/site.css, images/logo.png\r\nconfig/site.json";
+        var paths = PathListParser.Parse(input).Select(x => x.Value).ToArray();
+        TestAssert.Equal(3, paths.Length, "comma-separated entries should be parsed");
+        TestAssert.Equal("css/site.css", paths[0], "first path");
+        TestAssert.Equal("images/logo.png", paths[1], "second path");
+        TestAssert.Equal("config/site.json", paths[2], "third path");
     }
 }
