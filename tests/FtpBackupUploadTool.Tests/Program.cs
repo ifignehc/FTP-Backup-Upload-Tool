@@ -18,7 +18,10 @@ var tests = new Action[]
     RemoteTests.CanceledUploadDoesNotCreateOrTruncateTargetFile,
     RemoteTests.CanceledDeleteDoesNotDeleteTargetFile,
     RemoteTests.CanceledDownloadMissingFileThrowsCancellation,
-    RemoteTests.LocalMirrorRejectsSiblingPrefixEscape
+    RemoteTests.LocalMirrorRejectsSiblingPrefixEscape,
+    BackupServiceTests.BackupDownloadsExistingAndLogsNewFile,
+    BackupServiceTests.BackupLogWriterHonorsSelectedFields,
+    BackupServiceTests.CanceledBackupDoesNotCreatePartialFile
 };
 
 var failures = new List<string>();
