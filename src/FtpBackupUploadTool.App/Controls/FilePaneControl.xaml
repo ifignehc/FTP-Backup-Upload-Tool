@@ -20,6 +20,8 @@
                   ItemsSource="{Binding Files}"
                   SelectionMode="Extended"
                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                  PreviewMouseLeftButtonDown="OnListViewPreviewMouseLeftButtonDown"
+                  PreviewMouseLeftButtonUp="OnListViewPreviewMouseLeftButtonUp"
                   PreviewMouseMove="OnListViewPreviewMouseMove"
                   ContextMenuOpening="OnContextMenuOpening">
             <ListView.ContextMenu>

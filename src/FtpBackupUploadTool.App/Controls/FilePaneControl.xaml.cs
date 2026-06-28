@@ -8,6 +8,8 @@ namespace FtpBackupUploadTool.App.Controls;
 
 public partial class FilePaneControl : UserControl
 {
+    private Point? dragStartPoint;
+
     public FilePaneControl()
     {
         InitializeComponent();
@@ -72,9 +74,32 @@ public partial class FilePaneControl : UserControl
         DeleteRequested?.Invoke(this, files);
     }
 
+    private void OnListViewPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        dragStartPoint = e.GetPosition(fileListView);
+    }
+
+    private void OnListViewPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        dragStartPoint = null;
+    }
+
     private void OnListViewPreviewMouseMove(object sender, MouseEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            dragStartPoint = null;
+            return;
+        }
+
+        if (dragStartPoint is not { } startPoint)
+        {
+            return;
+        }
+
+        var currentPoint = e.GetPosition(fileListView);
+        if (Math.Abs(currentPoint.X - startPoint.X) <= SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(currentPoint.Y - startPoint.Y) <= SystemParameters.MinimumVerticalDragDistance)
         {
             return;
         }
@@ -86,6 +111,7 @@ public partial class FilePaneControl : UserControl
         }
 
         DragDrop.DoDragDrop(fileListView, files.ToArray(), DragDropEffects.Copy);
+        dragStartPoint = null;
     }
 
     private void OnDrop(object sender, DragEventArgs e)
