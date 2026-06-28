@@ -25,7 +25,11 @@ var tests = new Action[]
     BackupServiceTests.RootedFolderTemplateThrowsBeforeCreatingOutsideBackupRoot,
     BackupServiceTests.AlreadyCanceledBackupDoesNotCreateBackupFolder,
     BackupServiceTests.BackupLogWriterCanceledBeforeReplacementPreservesExistingLog,
-    BackupServiceTests.CanceledBackupDoesNotCreatePartialFile
+    BackupServiceTests.CanceledBackupDoesNotCreatePartialFile,
+    UploadServiceTests.UploadCopiesLocalFileToDraft,
+    UploadServiceTests.UploadErrorsWhenDraftParentMissing,
+    UploadServiceTests.CanceledUploadBeforeFileOpenDoesNotTruncateDraftFile,
+    UploadServiceTests.ToLocalPathRejectsSiblingPrefixEscape
 };
 
 var failures = new List<string>();
