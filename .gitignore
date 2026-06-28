@@ -2,6 +2,7 @@
 .agents/
 .codex/
 .superpowers/
+.worktrees/
 
 # Secrets and local runtime configuration
 .env
