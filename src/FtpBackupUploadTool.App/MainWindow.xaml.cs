@@ -1,6 +1,10 @@
+using System.IO;
 using System.Windows;
 using FtpBackupUploadTool.App.ViewModels;
 using FtpBackupUploadTool.App.Views;
+using FtpBackupUploadTool.Core.Logging;
+using FtpBackupUploadTool.Core.Remote;
+using FtpBackupUploadTool.Core.Services;
 
 namespace FtpBackupUploadTool.App;
 
@@ -11,7 +15,19 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        viewModel = new MainViewModel();
+        var devRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FtpBackupUploadTool",
+            "DevMirror");
+        var production = new LocalMirrorRemoteClient(Path.Combine(devRoot, "production"));
+        var draft = new LocalMirrorRemoteClient(Path.Combine(devRoot, "draft"));
+        var local = Path.Combine(devRoot, "local");
+        Directory.CreateDirectory(local);
+
+        viewModel = new MainViewModel(
+            new BackupService(production, new BackupLogWriter()),
+            new UploadService(draft, local),
+            new CheckService(production, draft));
         viewModel.SettingsRequested += OnSettingsRequested;
         DataContext = viewModel;
     }

@@ -4,16 +4,24 @@ using System.Windows.Input;
 using FtpBackupUploadTool.App.Commands;
 using FtpBackupUploadTool.Core.Models;
 using FtpBackupUploadTool.Core.Paths;
+using FtpBackupUploadTool.Core.Services;
 
 namespace FtpBackupUploadTool.App.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
+    private readonly BackupService backupService;
+    private readonly UploadService uploadService;
+    private readonly CheckService checkService;
     private string pathListText = string.Empty;
     private string selectedProcess;
 
-    public MainViewModel()
+    public MainViewModel(BackupService backupService, UploadService uploadService, CheckService checkService)
     {
+        this.backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
+        this.uploadService = uploadService ?? throw new ArgumentNullException(nameof(uploadService));
+        this.checkService = checkService ?? throw new ArgumentNullException(nameof(checkService));
+
         Processes = new ObservableCollection<string>
         {
             "默认工序",
@@ -32,9 +40,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             FormatLog("工具界面已就绪")
         };
 
-        BackupCommand = new RelayCommand(_ => AddLog("备份按钮已点击"));
-        UploadCommand = new RelayCommand(_ => AddLog("上传按钮已点击"));
-        CheckCommand = new RelayCommand(_ => AddLog("Check按钮已点击"));
+        BackupCommand = new RelayCommand(async _ => await RunBackupAsync());
+        UploadCommand = new RelayCommand(async _ => await RunUploadAsync());
+        CheckCommand = new RelayCommand(async _ => await RunCheckAsync());
         OpenSettingsCommand = new RelayCommand(_ => SettingsRequested?.Invoke(this, EventArgs.Empty));
     }
 
@@ -96,6 +104,70 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public void AddLog(string message)
     {
         Logs.Add(FormatLog(message));
+    }
+
+    private IReadOnlyList<RelativePath> ParsePaths() => PathListParser.Parse(PathListText);
+
+    private async Task RunBackupAsync()
+    {
+        try
+        {
+            var paths = ParsePaths();
+            var result = await backupService.RunAsync(
+                paths,
+                "%USERPROFILE%\\Desktop",
+                "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup",
+                LogFieldOptions.All,
+                CancellationToken.None);
+
+            AppendLogs(result.Logs);
+        }
+        catch (Exception ex)
+        {
+            AddErrorLog(ex);
+        }
+    }
+
+    private async Task RunUploadAsync()
+    {
+        try
+        {
+            var paths = ParsePaths();
+            var result = await uploadService.RunAsync(paths, CancellationToken.None);
+            AppendLogs(result.Logs);
+        }
+        catch (Exception ex)
+        {
+            AddErrorLog(ex);
+        }
+    }
+
+    private async Task RunCheckAsync()
+    {
+        try
+        {
+            var paths = ParsePaths();
+            var result = await checkService.RunAsync(paths, CancellationToken.None);
+            AppendLogs(result.Logs);
+        }
+        catch (Exception ex)
+        {
+            AddErrorLog(ex);
+        }
+    }
+
+    private void AppendLogs(IReadOnlyList<OperationLogEntry> entries)
+    {
+        foreach (var log in entries)
+        {
+            var path = log.Path?.Value ?? string.Empty;
+            AddLog($"[{log.Level}] {path}: {log.Message}");
+        }
+    }
+
+    private void AddErrorLog(Exception exception)
+    {
+        AddLog($"[Error] : {exception.Message}");
     }
 
     private static string FormatLog(string message) => $"{DateTime.Now:HH:mm:ss}  {message}";
