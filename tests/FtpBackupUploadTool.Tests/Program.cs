@@ -8,7 +8,8 @@ var tests = new Action[]
     PathTests.RejectDriveQualifiedPath,
     PathTests.RejectRootedWindowsPath,
     PathTests.ParsePathListText,
-    PathTests.ParseCommaSeparatedPathListText
+    PathTests.ParseCommaSeparatedPathListText,
+    RemoteTests.LocalMirrorCanWriteAndRead
 };
 
 var failures = new List<string>();
