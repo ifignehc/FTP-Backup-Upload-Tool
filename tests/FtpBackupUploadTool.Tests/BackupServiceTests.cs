@@ -1,3 +1,4 @@
+using System.Text;
 using FtpBackupUploadTool.Core.Logging;
 using FtpBackupUploadTool.Core.Models;
 using FtpBackupUploadTool.Core.Paths;
@@ -23,7 +24,8 @@ internal static class BackupServiceTests
         TestAssert.True(File.Exists(Path.Combine(result.BackupFolder, "css", "site.css")), "existing production file should be backed up");
         TestAssert.True(File.Exists(Path.Combine(result.BackupFolder, "backup-log.csv")), "backup log should exist");
         var logText = File.ReadAllText(Path.Combine(result.BackupFolder, "backup-log.csv"));
-        TestAssert.True(logText.Contains("新文件", StringComparison.Ordinal), "missing production file should be logged as new file");
+        TestAssert.True(logText.Contains("新文件，生产服务器不存在，跳过备份", StringComparison.Ordinal), "missing production file should be logged as new file");
+        TestAssert.True(result.Logs.Any(log => log.Message == "新文件，跳过备份"), "missing production file should be logged with readable Chinese UI text");
     }
 
     public static void BackupLogWriterHonorsSelectedFields()
@@ -51,6 +53,132 @@ internal static class BackupServiceTests
         TestAssert.Equal("RelativePath,Result", lines[0].TrimStart('\uFEFF'), "CSV header should contain only selected fields");
         TestAssert.True(!lines[0].Contains("ProductionFullPath", StringComparison.Ordinal), "CSV header should omit unselected production field");
         TestAssert.True(!lines[0].Contains("Note", StringComparison.Ordinal), "CSV header should omit unselected note field");
+    }
+
+    public static void InvalidFolderTemplateThrowsBeforeCreatingOutsideBackupRoot()
+    {
+        var productionRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-prod", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(productionRoot);
+        var backupRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-backup", Guid.NewGuid().ToString("N"));
+        var siblingRoot = Path.Combine(Path.GetDirectoryName(backupRoot)!, "escape");
+        if (Directory.Exists(siblingRoot))
+        {
+            Directory.Delete(siblingRoot, recursive: true);
+        }
+
+        var service = new BackupService(new LocalMirrorRemoteClient(productionRoot), new BackupLogWriter());
+
+        var threw = false;
+        try
+        {
+            service.RunAsync(
+                Array.Empty<RelativePath>(),
+                backupRoot,
+                @"..\escape",
+                LogFieldOptions.All,
+                CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch (ArgumentException)
+        {
+            threw = true;
+        }
+
+        TestAssert.True(threw, "invalid folder template should throw ArgumentException");
+        TestAssert.True(!Directory.Exists(siblingRoot), "invalid folder template must not create outside backup root");
+    }
+
+    public static void RootedFolderTemplateThrowsBeforeCreatingOutsideBackupRoot()
+    {
+        var productionRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-prod", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(productionRoot);
+        var backupRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-backup", Guid.NewGuid().ToString("N"));
+        var outsideRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-rooted-escape", Guid.NewGuid().ToString("N"));
+        var service = new BackupService(new LocalMirrorRemoteClient(productionRoot), new BackupLogWriter());
+
+        var threw = false;
+        try
+        {
+            service.RunAsync(
+                Array.Empty<RelativePath>(),
+                backupRoot,
+                outsideRoot,
+                LogFieldOptions.All,
+                CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch (ArgumentException)
+        {
+            threw = true;
+        }
+
+        TestAssert.True(threw, "rooted folder template should throw ArgumentException");
+        TestAssert.True(!Directory.Exists(outsideRoot), "rooted folder template must not create outside backup root");
+    }
+
+    public static void AlreadyCanceledBackupDoesNotCreateBackupFolder()
+    {
+        var productionRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-prod", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(productionRoot);
+        var backupRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-backup", Guid.NewGuid().ToString("N"));
+        var service = new BackupService(new LocalMirrorRemoteClient(productionRoot), new BackupLogWriter());
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var canceled = false;
+        try
+        {
+            service.RunAsync(
+                Array.Empty<RelativePath>(),
+                backupRoot,
+                "Backup",
+                LogFieldOptions.All,
+                cts.Token).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            canceled = true;
+        }
+
+        TestAssert.True(canceled, "already-canceled backup should throw");
+        TestAssert.True(!Directory.Exists(backupRoot), "already-canceled backup must not create backup root or folder");
+    }
+
+    public static void BackupLogWriterCanceledBeforeReplacementPreservesExistingLog()
+    {
+        var logPath = Path.Combine(Path.GetTempPath(), "ftp-tool-backup-log", Guid.NewGuid().ToString("N"), "backup-log.csv");
+        Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+        File.WriteAllText(logPath, "existing-log", Encoding.UTF8);
+        var writer = new BackupLogWriter();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var canceled = false;
+        try
+        {
+            writer.WriteAsync(
+                logPath,
+                new[]
+                {
+                    new BackupLogRow(
+                        RelativePath.Parse("css/site.css"),
+                        "/prod/css/site.css",
+                        string.Empty,
+                        string.Empty,
+                        null,
+                        null,
+                        "Skipped",
+                        string.Empty,
+                        "新文件，生产服务器不存在，跳过备份")
+                },
+                LogFieldOptions.All,
+                cts.Token).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            canceled = true;
+        }
+
+        TestAssert.True(canceled, "canceled log write should throw");
+        TestAssert.Equal("existing-log", File.ReadAllText(logPath, Encoding.UTF8), "canceled log write should preserve existing log");
     }
 
     public static void CanceledBackupDoesNotCreatePartialFile()

@@ -25,9 +25,13 @@ public sealed class BackupService
         LogFieldOptions logFields,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var renderedFolderName = RenderFolderName(folderTemplate, DateTimeOffset.Now);
+        ValidateBackupFolderName(renderedFolderName);
         var folder = Path.Combine(
             Environment.ExpandEnvironmentVariables(backupRoot),
-            RenderFolderName(folderTemplate, DateTimeOffset.Now));
+            renderedFolderName);
         Directory.CreateDirectory(folder);
 
         var logs = new List<OperationLogEntry>();
@@ -47,6 +51,7 @@ public sealed class BackupService
             }
 
             var destinationPath = GetDestinationPath(folder, path);
+            cancellationToken.ThrowIfCancellationRequested();
             Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? folder);
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -78,6 +83,22 @@ public sealed class BackupService
             .Replace("{HH}", now.ToString("HH"), StringComparison.Ordinal)
             .Replace("{mm}", now.ToString("mm"), StringComparison.Ordinal)
             .Replace("{ss}", now.ToString("ss"), StringComparison.Ordinal);
+    }
+
+    private static void ValidateBackupFolderName(string folderName)
+    {
+        if (string.IsNullOrWhiteSpace(folderName)
+            || folderName is "." or ".."
+            || Path.IsPathFullyQualified(folderName)
+            || folderName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || folderName.Contains(Path.DirectorySeparatorChar)
+            || folderName.Contains(Path.AltDirectorySeparatorChar)
+            || folderName.Contains('/')
+            || folderName.Contains('\\')
+            || Path.GetFileName(folderName) != folderName)
+        {
+            throw new ArgumentException("Rendered backup folder template must be a single safe directory name.", nameof(folderName));
+        }
     }
 
     private static string GetDestinationPath(string backupFolder, RelativePath path)

@@ -21,6 +21,10 @@ var tests = new Action[]
     RemoteTests.LocalMirrorRejectsSiblingPrefixEscape,
     BackupServiceTests.BackupDownloadsExistingAndLogsNewFile,
     BackupServiceTests.BackupLogWriterHonorsSelectedFields,
+    BackupServiceTests.InvalidFolderTemplateThrowsBeforeCreatingOutsideBackupRoot,
+    BackupServiceTests.RootedFolderTemplateThrowsBeforeCreatingOutsideBackupRoot,
+    BackupServiceTests.AlreadyCanceledBackupDoesNotCreateBackupFolder,
+    BackupServiceTests.BackupLogWriterCanceledBeforeReplacementPreservesExistingLog,
     BackupServiceTests.CanceledBackupDoesNotCreatePartialFile
 };
 

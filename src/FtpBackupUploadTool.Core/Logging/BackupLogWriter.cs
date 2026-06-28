@@ -29,8 +29,29 @@ public sealed class BackupLogWriter
         var lines = new List<string> { BuildHeader(fields) };
         lines.AddRange(rows.Select(row => BuildLine(row, fields)));
 
-        Directory.CreateDirectory(Path.GetDirectoryName(logPath) ?? ".");
-        await File.WriteAllLinesAsync(logPath, lines, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true), cancellationToken);
+        var directory = Path.GetDirectoryName(logPath) ?? ".";
+        Directory.CreateDirectory(directory);
+        var tempPath = Path.Combine(directory, $".{Path.GetFileName(logPath)}.{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            await File.WriteAllLinesAsync(tempPath, lines, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true), cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (File.Exists(logPath))
+            {
+                File.Replace(tempPath, logPath, null);
+            }
+            else
+            {
+                File.Move(tempPath, logPath);
+            }
+        }
+        catch
+        {
+            TryDeleteTempFile(tempPath);
+            throw;
+        }
     }
 
     private static string BuildHeader(LogFieldOptions fields)
@@ -81,5 +102,22 @@ public sealed class BackupLogWriter
         return value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r')
             ? $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\""
             : value;
+    }
+
+    private static void TryDeleteTempFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 }
