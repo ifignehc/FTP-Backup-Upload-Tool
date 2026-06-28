@@ -9,7 +9,10 @@ var tests = new Action[]
     PathTests.RejectRootedWindowsPath,
     PathTests.ParsePathListText,
     PathTests.ParseCommaSeparatedPathListText,
-    RemoteTests.LocalMirrorCanWriteAndRead
+    RemoteTests.LocalMirrorCanWriteAndRead,
+    RemoteTests.CanceledUploadDoesNotCreateOrTruncateTargetFile,
+    RemoteTests.CanceledDeleteDoesNotDeleteTargetFile,
+    RemoteTests.LocalMirrorRejectsSiblingPrefixEscape
 };
 
 var failures = new List<string>();

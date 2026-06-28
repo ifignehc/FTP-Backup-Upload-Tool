@@ -15,6 +15,8 @@ public sealed class LocalMirrorRemoteClient : IRemoteFileClient
 
     public Task<IReadOnlyList<FileEntry>> ListRecursiveAsync(CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var files = Directory.EnumerateFiles(_root, "*", SearchOption.AllDirectories)
             .Select(file =>
             {
@@ -28,13 +30,21 @@ public sealed class LocalMirrorRemoteClient : IRemoteFileClient
     }
 
     public Task<bool> FileExistsAsync(RelativePath path, CancellationToken cancellationToken)
-        => Task.FromResult(File.Exists(ToFullPath(path)));
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(File.Exists(ToFullPath(path)));
+    }
 
     public Task<bool> DirectoryExistsAsync(RelativePath path, CancellationToken cancellationToken)
-        => Task.FromResult(Directory.Exists(ToFullPath(path)));
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(Directory.Exists(ToFullPath(path)));
+    }
 
     public Task<FileEntry?> GetFileEntryAsync(RelativePath path, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var fullPath = ToFullPath(path);
         if (!File.Exists(fullPath))
         {
@@ -53,6 +63,8 @@ public sealed class LocalMirrorRemoteClient : IRemoteFileClient
 
     public async Task UploadAsync(RelativePath path, Stream source, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var fullPath = ToFullPath(path);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath) ?? _root);
         await using var destination = File.Create(fullPath);
@@ -61,6 +73,8 @@ public sealed class LocalMirrorRemoteClient : IRemoteFileClient
 
     public Task DeleteFileAsync(RelativePath path, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         File.Delete(ToFullPath(path));
         return Task.CompletedTask;
     }
