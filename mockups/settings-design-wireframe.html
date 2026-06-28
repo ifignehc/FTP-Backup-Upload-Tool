@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FTP备份上传工具 - 设置界面线框</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --line: #cfd7e3;
+      --text: #1f2937;
+      --muted: #667085;
+      --accent: #0f766e;
+      --accent-soft: #e7f6f4;
+      --danger: #b91c1c;
+      --field: #fbfcfd;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+      letter-spacing: 0;
+    }
+    .dialog {
+      width: min(1180px, calc(100vw - 32px));
+      height: min(760px, calc(100vh - 32px));
+      margin: 16px auto;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+    }
+    .titlebar {
+      height: 52px;
+      border-bottom: 1px solid var(--line);
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .body {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 260px 1fr;
+    }
+    .sidebar {
+      border-right: 1px solid var(--line);
+      background: #f8fafc;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 0;
+    }
+    .side-head {
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .search {
+      width: 100%;
+      height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0 10px;
+      background: #fff;
+    }
+    .process-list {
+      padding: 8px;
+      overflow: auto;
+    }
+    .process {
+      min-height: 42px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 7px 9px;
+      display: grid;
+      gap: 2px;
+      margin-bottom: 6px;
+      cursor: default;
+    }
+    .process.active {
+      background: var(--accent-soft);
+      border-color: #93d1ca;
+    }
+    .process strong {
+      font-size: 14px;
+    }
+    .process span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .side-actions {
+      border-top: 1px solid var(--line);
+      padding: 10px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    button {
+      height: 32px;
+      border: 1px solid #0b5f59;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      padding: 0 12px;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    button.secondary {
+      background: #fff;
+      color: var(--text);
+      border-color: var(--line);
+    }
+    button.danger {
+      background: #fff;
+      color: var(--danger);
+      border-color: #f0b4b4;
+    }
+    .content {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .tabs {
+      height: 44px;
+      border-bottom: 1px solid var(--line);
+      padding: 6px 12px 0;
+      display: flex;
+      gap: 6px;
+      align-items: end;
+      overflow-x: auto;
+    }
+    .tab {
+      height: 32px;
+      border: 1px solid var(--line);
+      border-bottom: 0;
+      border-radius: 6px 6px 0 0;
+      background: #f8fafc;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .tab.active {
+      background: #fff;
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .form {
+      padding: 14px;
+      overflow: auto;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .section h2 {
+      margin: 0;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfd;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .section-body {
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .field {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    input, select {
+      width: 100%;
+      height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--field);
+      padding: 0 9px;
+      color: var(--text);
+      font-size: 13px;
+    }
+    .inline-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .checks {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .check {
+      min-height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fbfcfd;
+      padding: 6px 8px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .check input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      min-width: 14px;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+    .footer {
+      height: 54px;
+      border-top: 1px solid var(--line);
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #fbfcfd;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    @media (max-width: 900px) {
+      .dialog { height: auto; min-height: calc(100vh - 32px); }
+      .body { grid-template-columns: 1fr; }
+      .sidebar { border-right: 0; border-bottom: 1px solid var(--line); max-height: 260px; }
+      .grid, .grid.two, .checks { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="dialog">
+    <header class="titlebar">
+      <h1>设置</h1>
+      <button class="secondary">关闭</button>
+    </header>
+
+    <main class="body">
+      <aside class="sidebar">
+        <div class="side-head">
+          <input class="search" value="搜索工序">
+        </div>
+        <div class="process-list">
+          <div class="process active">
+            <strong>默认工序</strong>
+            <span>生产 192.168.1.10 / 起案 192.168.1.20</span>
+          </div>
+          <div class="process">
+            <strong>图片更新</strong>
+            <span>生产 ftp-prod-img / 起案 ftp-draft-img</span>
+          </div>
+          <div class="process">
+            <strong>页面发布</strong>
+            <span>生产 ftp-prod-web / 起案 ftp-draft-web</span>
+          </div>
+        </div>
+        <div class="side-actions">
+          <button class="secondary">新增</button>
+          <button class="secondary">复制</button>
+          <button class="danger">删除</button>
+        </div>
+      </aside>
+
+      <section class="content">
+        <nav class="tabs">
+          <div class="tab active">工序信息</div>
+          <div class="tab">生产服务器</div>
+          <div class="tab">起案服务器</div>
+          <div class="tab">路径与备份</div>
+          <div class="tab">日志内容</div>
+        </nav>
+
+        <div class="form">
+          <section class="section">
+            <h2>
+              工序基础信息
+              <span class="hint">用于主界面下拉选择</span>
+            </h2>
+            <div class="section-body">
+              <div class="grid two">
+                <div class="field">
+                  <label>工序名称</label>
+                  <input value="默认工序">
+                </div>
+                <div class="field">
+                  <label>默认路径清单文件</label>
+                  <input value=".\path-lists\default.txt">
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>
+              生产服务器 FTP
+              <span class="inline-actions">
+                <button class="secondary">显示密码</button>
+                <button>测试连接</button>
+              </span>
+            </h2>
+            <div class="section-body">
+              <div class="grid">
+                <div class="field">
+                  <label>IP / 域名</label>
+                  <input value="192.168.1.10">
+                </div>
+                <div class="field">
+                  <label>端口</label>
+                  <input value="21">
+                </div>
+                <div class="field">
+                  <label>账号</label>
+                  <input value="prod_user">
+                </div>
+                <div class="field">
+                  <label>密码</label>
+                  <input value="••••••••••">
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>
+              起案服务器 FTP
+              <span class="inline-actions">
+                <button class="secondary">显示密码</button>
+                <button>测试连接</button>
+              </span>
+            </h2>
+            <div class="section-body">
+              <div class="grid">
+                <div class="field">
+                  <label>IP / 域名</label>
+                  <input value="192.168.1.20">
+                </div>
+                <div class="field">
+                  <label>端口</label>
+                  <input value="21">
+                </div>
+                <div class="field">
+                  <label>账号</label>
+                  <input value="draft_user">
+                </div>
+                <div class="field">
+                  <label>密码</label>
+                  <input value="••••••••••">
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>根目录与备份</h2>
+            <div class="section-body">
+              <div class="grid two">
+                <div class="field">
+                  <label>服务器根目录</label>
+                  <input value="/www/project">
+                </div>
+                <div class="field">
+                  <label>本地根目录</label>
+                  <input value="D:\Release\project">
+                </div>
+                <div class="field">
+                  <label>备份保存目录</label>
+                  <input value="%USERPROFILE%\Desktop">
+                </div>
+                <div class="field">
+                  <label>备份文件夹命名模板</label>
+                  <input value="{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup">
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>
+              备份日志内容
+              <span class="hint">勾选后写入每次备份文件夹内的日志</span>
+            </h2>
+            <div class="section-body">
+              <div class="checks">
+                <div class="check"><input type="checkbox" checked>相对路径</div>
+                <div class="check"><input type="checkbox" checked>生产完整路径</div>
+                <div class="check"><input type="checkbox" checked>起案完整路径</div>
+                <div class="check"><input type="checkbox" checked>本地完整路径</div>
+                <div class="check"><input type="checkbox" checked>文件大小</div>
+                <div class="check"><input type="checkbox" checked>最后修改时间</div>
+                <div class="check"><input type="checkbox" checked>操作结果</div>
+                <div class="check"><input type="checkbox" checked>错误信息</div>
+                <div class="check"><input type="checkbox" checked>备注</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="hint">密码将使用 Windows 当前用户加密保存；换电脑后需要重新输入密码。</div>
+      <div class="inline-actions">
+        <button class="secondary">取消</button>
+        <button>保存设置</button>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
