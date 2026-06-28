@@ -36,9 +36,9 @@
             <GroupBox Header="工序">
                 <DockPanel Margin="8">
                     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
-                        <Button Content="新增" Width="62" Margin="0,0,6,0" />
-                        <Button Content="复制" Width="62" Margin="0,0,6,0" />
-                        <Button Content="删除" Width="62" />
+                        <Button Content="新增" Width="62" Margin="0,0,6,0" IsEnabled="False" />
+                        <Button Content="复制" Width="62" Margin="0,0,6,0" IsEnabled="False" />
+                        <Button Content="删除" Width="62" IsEnabled="False" />
                     </StackPanel>
                     <ListBox ItemsSource="{Binding Processes}"
                              SelectedItem="{Binding SelectedProcess}" />
@@ -75,13 +75,13 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="IP / 域名" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1" Text="{Binding ProductionHost}" Padding="8,6" Margin="0,0,12,0" />
+                            <TextBox Grid.Column="1" Text="{Binding ProductionHost, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Margin="0,0,12,0" />
                             <TextBlock Grid.Column="2" Text="端口" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="3" Text="{Binding ProductionPort}" Padding="8,6" Margin="0,0,12,0" />
+                            <TextBox Grid.Column="3" Text="{Binding ProductionPort, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Margin="0,0,12,0" />
                             <TextBlock Grid.Column="4" Text="账号" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="5" Text="{Binding ProductionAccount}" Padding="8,6" Margin="0,0,12,0" />
+                            <TextBox Grid.Column="5" Text="{Binding ProductionAccount, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Margin="0,0,12,0" />
                             <TextBlock Grid.Column="6" Text="密码" VerticalAlignment="Center" />
-                            <PasswordBox Grid.Column="7" Password="password" Padding="8,6" />
+                            <PasswordBox Grid.Column="7" Padding="8,6" />
                         </Grid>
                     </GroupBox>
 
@@ -98,13 +98,13 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="IP / 域名" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1" Text="{Binding DraftHost}" Padding="8,6" Margin="0,0,12,0" />
+                            <TextBox Grid.Column="1" Text="{Binding DraftHost, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Margin="0,0,12,0" />
                             <TextBlock Grid.Column="2" Text="端口" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="3" Text="{Binding DraftPort}" Padding="8,6" Margin="0,0,12,0" />
+                            <TextBox Grid.Column="3" Text="{Binding DraftPort, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Margin="0,0,12,0" />
                             <TextBlock Grid.Column="4" Text="账号" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="5" Text="{Binding DraftAccount}" Padding="8,6" Margin="0,0,12,0" />
+                            <TextBox Grid.Column="5" Text="{Binding DraftAccount, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Margin="0,0,12,0" />
                             <TextBlock Grid.Column="6" Text="密码" VerticalAlignment="Center" />
-                            <PasswordBox Grid.Column="7" Password="password" Padding="8,6" />
+                            <PasswordBox Grid.Column="7" Padding="8,6" />
                         </Grid>
                     </GroupBox>
 
