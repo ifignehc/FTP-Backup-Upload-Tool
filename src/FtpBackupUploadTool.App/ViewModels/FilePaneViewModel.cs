@@ -14,6 +14,8 @@ public sealed class FilePaneViewModel
 
     public string Title { get; }
 
+    public string CurrentPath { get; } = "/";
+
     public bool IsReadOnly { get; }
 
     public ObservableCollection<FileEntry> Files { get; }
