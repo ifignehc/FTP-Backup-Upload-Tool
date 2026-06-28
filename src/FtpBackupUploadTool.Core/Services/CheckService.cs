@@ -13,10 +13,10 @@ public sealed class CheckService
     private readonly IRemoteFileClient _draft;
     private readonly IRemoteFileClient _production;
 
-    public CheckService(IRemoteFileClient draft, IRemoteFileClient production)
+    public CheckService(IRemoteFileClient production, IRemoteFileClient draft)
     {
-        _draft = draft;
         _production = production;
+        _draft = draft;
     }
 
     public async Task<CheckRunResult> RunAsync(IReadOnlyList<RelativePath> paths, CancellationToken cancellationToken)

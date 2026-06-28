@@ -20,8 +20,8 @@ internal static class CheckServiceTests
         File.WriteAllText(Path.Combine(productionRoot, "js", "legacy.js"), "prod-script");
 
         var service = new CheckService(
-            new LocalMirrorRemoteClient(draftRoot),
-            new LocalMirrorRemoteClient(productionRoot));
+            new LocalMirrorRemoteClient(productionRoot),
+            new LocalMirrorRemoteClient(draftRoot));
         var paths = new[]
         {
             RelativePath.Parse("css/site.css"),
@@ -46,8 +46,8 @@ internal static class CheckServiceTests
 
         var productionRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-check-prod", Guid.NewGuid().ToString("N"));
         var service = new CheckService(
-            new LocalMirrorRemoteClient(draftRoot),
-            new LocalMirrorRemoteClient(productionRoot));
+            new LocalMirrorRemoteClient(productionRoot),
+            new LocalMirrorRemoteClient(draftRoot));
         var paths = new[]
         {
             RelativePath.Parse("CSS/SITE.CSS"),
