@@ -58,12 +58,14 @@
             <GroupBox Grid.Column="2" Header="{Binding ProductionPane.Title}">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Margin="8,6,8,0" Foreground="#667085" Text="只读" />
-                    <ListView Margin="0,6,0,0" ItemsSource="{Binding ProductionPane.Files}">
+                    <ListView Margin="0,6,0,0"
+                              ItemsSource="{Binding ProductionPane.Files}"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto">
                         <ListView.View>
                             <GridView>
-                                <GridViewColumn Width="150" Header="Path" DisplayMemberBinding="{Binding Path.Value}" />
-                                <GridViewColumn Width="80" Header="Size" DisplayMemberBinding="{Binding Size}" />
-                                <GridViewColumn Width="150" Header="LastModified" DisplayMemberBinding="{Binding LastModified}" />
+                                <GridViewColumn Width="130" Header="Path" DisplayMemberBinding="{Binding Path.Value}" />
+                                <GridViewColumn Width="70" Header="Size" DisplayMemberBinding="{Binding Size}" />
+                                <GridViewColumn Width="120" Header="LastModified" DisplayMemberBinding="{Binding LastModified}" />
                             </GridView>
                         </ListView.View>
                     </ListView>
@@ -73,12 +75,14 @@
             <GroupBox Grid.Column="4" Header="{Binding DraftPane.Title}">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Margin="8,6,8,0" Foreground="#667085" Text="可编辑" />
-                    <ListView Margin="0,6,0,0" ItemsSource="{Binding DraftPane.Files}">
+                    <ListView Margin="0,6,0,0"
+                              ItemsSource="{Binding DraftPane.Files}"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto">
                         <ListView.View>
                             <GridView>
-                                <GridViewColumn Width="150" Header="Path" DisplayMemberBinding="{Binding Path.Value}" />
-                                <GridViewColumn Width="80" Header="Size" DisplayMemberBinding="{Binding Size}" />
-                                <GridViewColumn Width="150" Header="LastModified" DisplayMemberBinding="{Binding LastModified}" />
+                                <GridViewColumn Width="130" Header="Path" DisplayMemberBinding="{Binding Path.Value}" />
+                                <GridViewColumn Width="70" Header="Size" DisplayMemberBinding="{Binding Size}" />
+                                <GridViewColumn Width="120" Header="LastModified" DisplayMemberBinding="{Binding LastModified}" />
                             </GridView>
                         </ListView.View>
                     </ListView>
@@ -88,12 +92,14 @@
             <GroupBox Grid.Column="6" Header="{Binding LocalPane.Title}">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Margin="8,6,8,0" Foreground="#667085" Text="可编辑" />
-                    <ListView Margin="0,6,0,0" ItemsSource="{Binding LocalPane.Files}">
+                    <ListView Margin="0,6,0,0"
+                              ItemsSource="{Binding LocalPane.Files}"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto">
                         <ListView.View>
                             <GridView>
-                                <GridViewColumn Width="150" Header="Path" DisplayMemberBinding="{Binding Path.Value}" />
-                                <GridViewColumn Width="80" Header="Size" DisplayMemberBinding="{Binding Size}" />
-                                <GridViewColumn Width="150" Header="LastModified" DisplayMemberBinding="{Binding LastModified}" />
+                                <GridViewColumn Width="130" Header="Path" DisplayMemberBinding="{Binding Path.Value}" />
+                                <GridViewColumn Width="70" Header="Size" DisplayMemberBinding="{Binding Size}" />
+                                <GridViewColumn Width="120" Header="LastModified" DisplayMemberBinding="{Binding LastModified}" />
                             </GridView>
                         </ListView.View>
                     </ListView>
