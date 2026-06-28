@@ -187,7 +187,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         if (currentProcess is null)
         {
-            AddLog("[Error] Backup: 未加载已保存工序，请先打开设置并保存配置");
+            AddLog("[Error] Backup: 未加载已保存工序，请先完成配置");
             return;
         }
 

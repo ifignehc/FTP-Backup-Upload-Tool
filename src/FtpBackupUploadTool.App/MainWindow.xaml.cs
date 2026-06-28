@@ -69,7 +69,7 @@ public partial class MainWindow : Window
 
         if (settingsWindow.ShowDialog() == true)
         {
-            viewModel.AddLog("设置已保存");
+            viewModel.AddLog("设置窗口已关闭");
         }
     }
 }
