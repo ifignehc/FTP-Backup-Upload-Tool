@@ -14,6 +14,24 @@ internal static class RemoteTests
         TestAssert.Equal("ftp://ftp.example.com:2121/draft/", uri.AbsoluteUri, "root uri");
     }
 
+    public static void FtpPathBuildsRootUriFromEmptyRoot()
+    {
+        var ftpPath = new FtpPath("ftp.example.com", 2121, "   ");
+
+        var uri = ftpPath.For(null);
+
+        TestAssert.Equal("ftp://ftp.example.com:2121/", uri.AbsoluteUri, "empty root uri");
+    }
+
+    public static void FtpPathBuildsRootUriFromSlashOnlyRoot()
+    {
+        var ftpPath = new FtpPath("ftp.example.com", 2121, "/");
+
+        var uri = ftpPath.For(null);
+
+        TestAssert.Equal("ftp://ftp.example.com:2121/", uri.AbsoluteUri, "slash-only root uri");
+    }
+
     public static void FtpPathAppendsRelativePathSegments()
     {
         var ftpPath = new FtpPath("ftp.example.com", 2021, "production");

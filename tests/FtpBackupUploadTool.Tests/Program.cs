@@ -15,6 +15,8 @@ var tests = new Action[]
     ConfigTests.CanceledSavePreservesExistingConfig,
     ConfigTests.FailedReplacePreservesExistingConfig,
     RemoteTests.FtpPathBuildsRootUriFromTrimmedRoot,
+    RemoteTests.FtpPathBuildsRootUriFromEmptyRoot,
+    RemoteTests.FtpPathBuildsRootUriFromSlashOnlyRoot,
     RemoteTests.FtpPathAppendsRelativePathSegments,
     RemoteTests.FtpPathEscapesEachSegmentWithoutEscapingSeparators,
     RemoteTests.LocalMirrorCanWriteAndRead,

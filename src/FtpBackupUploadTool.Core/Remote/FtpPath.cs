@@ -34,10 +34,11 @@ public sealed class FtpPath
             segments.AddRange(SplitSegments(path.Value));
         }
 
-        var escapedPath = "/" + string.Join("/", segments.Select(Uri.EscapeDataString));
+        var escapedSegments = string.Join("/", segments.Select(Uri.EscapeDataString));
+        var escapedPath = escapedSegments.Length == 0 ? "/" : "/" + escapedSegments;
         if (path is null)
         {
-            escapedPath += "/";
+            escapedPath = EnsureTrailingSlash(escapedPath);
         }
 
         return new Uri(_authority + escapedPath);
@@ -55,5 +56,10 @@ public sealed class FtpPath
     {
         var unwrapped = host.Trim('[', ']');
         return unwrapped.Contains(':', StringComparison.Ordinal) ? $"[{unwrapped}]" : unwrapped;
+    }
+
+    private static string EnsureTrailingSlash(string value)
+    {
+        return value.EndsWith("/", StringComparison.Ordinal) ? value : value + "/";
     }
 }

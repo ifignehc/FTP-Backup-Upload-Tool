@@ -1,5 +1,3 @@
-#pragma warning disable SYSLIB0014
-
 using System.Globalization;
 using System.Net;
 using System.Text;
@@ -36,7 +34,8 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
     public async Task<IReadOnlyList<FileEntry>> ListRecursiveAsync(CancellationToken cancellationToken)
     {
         var files = new List<FileEntry>();
-        await ListRecursiveAsync(directory: null, files, cancellationToken);
+        var visitedDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await ListRecursiveAsync(directory: null, files, visitedDirectories, cancellationToken);
         return files;
     }
 
@@ -120,14 +119,24 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         using var response = await GetResponseAsync(request, cancellationToken);
     }
 
-    private async Task ListRecursiveAsync(RelativePath? directory, List<FileEntry> files, CancellationToken cancellationToken)
+    private async Task ListRecursiveAsync(
+        RelativePath? directory,
+        List<FileEntry> files,
+        HashSet<string> visitedDirectories,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var entries = await ListDirectoryDetailsAsync(directory, cancellationToken);
-        if (entries.Count == 0)
+        var directoryKey = directory?.Value ?? string.Empty;
+        if (!visitedDirectories.Add(directoryKey))
         {
-            await ListRecursiveByNamesAsync(directory, files, cancellationToken);
+            return;
+        }
+
+        var entries = await TryListDirectoryDetailsAsync(directory, cancellationToken);
+        if (entries is null || entries.Count == 0)
+        {
+            await ListRecursiveByNamesAsync(directory, files, visitedDirectories, cancellationToken);
             return;
         }
 
@@ -138,7 +147,7 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
             var childPath = Combine(directory, entry.Name);
             if (entry.IsDirectory)
             {
-                await ListRecursiveAsync(childPath, files, cancellationToken);
+                await ListRecursiveAsync(childPath, files, visitedDirectories, cancellationToken);
             }
             else
             {
@@ -147,7 +156,11 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         }
     }
 
-    private async Task ListRecursiveByNamesAsync(RelativePath? directory, List<FileEntry> files, CancellationToken cancellationToken)
+    private async Task ListRecursiveByNamesAsync(
+        RelativePath? directory,
+        List<FileEntry> files,
+        HashSet<string> visitedDirectories,
+        CancellationToken cancellationToken)
     {
         var names = await ListNamesAsync(directory, cancellationToken);
         foreach (var name in names)
@@ -164,12 +177,12 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
 
             if (await DirectoryExistsAsync(childPath, cancellationToken))
             {
-                await ListRecursiveAsync(childPath, files, cancellationToken);
+                await ListRecursiveAsync(childPath, files, visitedDirectories, cancellationToken);
             }
         }
     }
 
-    private async Task<IReadOnlyList<DirectoryListEntry>> ListDirectoryDetailsAsync(
+    private async Task<IReadOnlyList<DirectoryListEntry>?> TryListDirectoryDetailsAsync(
         RelativePath? directory,
         CancellationToken cancellationToken)
     {
@@ -179,7 +192,17 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         foreach (var line in lines)
         {
             var entry = TryParseDirectoryListEntry(line);
-            if (entry is not null && !IsSelfOrParent(entry.Name))
+            if (entry is null)
+            {
+                if (!IsSelfOrParent(GetLastPathSegment(line)))
+                {
+                    return null;
+                }
+
+                continue;
+            }
+
+            if (!IsSelfOrParent(entry.Name))
             {
                 entries.Add(entry);
             }
@@ -232,6 +255,8 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         return response.LastModified == DateTime.MinValue ? null : new DateTimeOffset(response.LastModified);
     }
 
+#pragma warning disable SYSLIB0014
+
     private FtpWebRequest CreateRequest(RelativePath? path, string method)
     {
         var request = (FtpWebRequest)WebRequest.Create(_path.For(path));
@@ -271,6 +296,19 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
             throw new OperationCanceledException(cancellationToken);
         }
     }
+
+    private static bool IsNotFound(WebException exception)
+    {
+        if (exception.Status != WebExceptionStatus.ProtocolError)
+        {
+            return false;
+        }
+
+        return exception.Response is FtpWebResponse response
+            && response.StatusCode == FtpStatusCode.ActionNotTakenFileUnavailable;
+    }
+
+#pragma warning restore SYSLIB0014
 
     private static DirectoryListEntry? TryParseDirectoryListEntry(string line)
     {
@@ -361,19 +399,5 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         return value is "." or "..";
     }
 
-    private static bool IsNotFound(WebException exception)
-    {
-        if (exception.Status != WebExceptionStatus.ProtocolError)
-        {
-            return false;
-        }
-
-        return exception.Response is FtpWebResponse response
-            && (response.StatusCode == FtpStatusCode.ActionNotTakenFileUnavailable
-                || response.StatusCode == FtpStatusCode.ActionNotTakenFilenameNotAllowed);
-    }
-
     private sealed record DirectoryListEntry(string Name, bool IsDirectory, long Size, DateTimeOffset? LastModified);
 }
-
-#pragma warning restore SYSLIB0014
