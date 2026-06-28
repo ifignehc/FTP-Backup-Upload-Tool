@@ -25,6 +25,12 @@ dotnet run --project tests/FtpBackupUploadTool.Tests/FtpBackupUploadTool.Tests.c
 ./scripts/publish-portable.ps1
 ```
 
+如果本机 PowerShell 执行策略拦截脚本，可以使用：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-portable.ps1
+```
+
 输出目录：
 
 ```text
