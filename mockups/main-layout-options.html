@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FTP 备份上传工具 - 主界面草图</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #1f2937;
+      --muted: #667085;
+      --line: #d9dee7;
+      --accent: #176b87;
+      --accent-soft: #e7f5f8;
+      --warn: #aa4b18;
+      --button: #22313f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+      line-height: 1.5;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 22px 48px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .recommend {
+      border: 1px solid #b7dfe8;
+      background: var(--accent-soft);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 20px;
+      color: #174957;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 22px rgba(31, 41, 55, 0.06);
+    }
+    .card.recommended {
+      border-color: var(--accent);
+      box-shadow: 0 10px 28px rgba(23, 107, 135, 0.16);
+    }
+    .card-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      font-weight: 700;
+      min-height: 50px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+      border-radius: 999px;
+      background: var(--accent);
+      color: white;
+      font-size: 12px;
+      padding: 3px 9px;
+      font-weight: 600;
+    }
+    .preview {
+      padding: 14px;
+      min-height: 310px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfd;
+    }
+    .wire {
+      border: 1px solid #cfd6df;
+      border-radius: 8px;
+      background: white;
+      height: 282px;
+      padding: 12px;
+    }
+    .bar, .box, .side, .content {
+      border: 1px solid #cfd6df;
+      border-radius: 6px;
+      background: #f5f7fa;
+      color: #667085;
+      font-size: 12px;
+      padding: 8px;
+    }
+    .bar { min-height: 34px; margin-bottom: 10px; }
+    .box { min-height: 62px; margin-bottom: 10px; }
+    .row { display: flex; gap: 10px; }
+    .row > * { flex: 1; }
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    .btn {
+      border: 0;
+      border-radius: 6px;
+      background: var(--button);
+      color: white;
+      padding: 9px 14px;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .btn.secondary { background: var(--accent); }
+    .layout {
+      display: grid;
+      grid-template-columns: 35% 1fr;
+      gap: 10px;
+      height: 100%;
+    }
+    .side {
+      background: #eef4f6;
+      color: #35515a;
+      line-height: 1.9;
+    }
+    .content {
+      background: white;
+      color: #667085;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .step {
+      border-radius: 6px;
+      background: #eef4f6;
+      color: #35515a;
+      text-align: center;
+      padding: 7px 4px;
+      font-size: 12px;
+    }
+    .body {
+      padding: 14px;
+    }
+    .body h2 {
+      font-size: 18px;
+      margin: 0 0 8px;
+    }
+    .body p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .note {
+      margin-top: 20px;
+      padding: 14px;
+      border-left: 4px solid var(--warn);
+      background: #fff8f3;
+      color: #5c331b;
+      border-radius: 6px;
+    }
+    @media (max-width: 920px) {
+      .grid { grid-template-columns: 1fr; }
+      .preview { min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>FTP 备份上传工具 - 主界面草图</h1>
+    <p class="subtitle">目标：多个服务器配置可切换，每个服务器记住协议、路径、账号和加密密码；主操作只有“备份”和“上传”。</p>
+    <div class="recommend">推荐选择 B：左侧服务器列表，右侧显示当前服务器配置和操作按钮。它最适合服务器数量多、需要频繁切换的场景。</div>
+
+    <section class="grid">
+      <article class="card">
+        <div class="card-head">
+          <span>A. 单屏紧凑布局</span>
+        </div>
+        <div class="preview">
+          <div class="wire">
+            <div class="bar">服务器：生产 FTP ▼</div>
+            <div class="row">
+              <div class="box">远程路径<br>/www/app</div>
+              <div class="box">本地上传文件夹<br>D:\release</div>
+            </div>
+            <div class="buttons">
+              <button class="btn secondary">备份</button>
+              <button class="btn">上传</button>
+            </div>
+            <div class="box">进度与日志</div>
+            <div class="box">重复文件：弹窗确认是否覆盖</div>
+          </div>
+        </div>
+        <div class="body">
+          <h2>适合服务器少的情况</h2>
+          <p>操作快，但服务器多以后，下拉切换和管理配置会变挤。</p>
+        </div>
+      </article>
+
+      <article class="card recommended">
+        <div class="card-head">
+          <span>B. 服务器列表 + 操作面板</span>
+          <span class="badge">推荐</span>
+        </div>
+        <div class="preview">
+          <div class="wire">
+            <div class="layout">
+              <div class="side">生产 FTP<br>测试 SFTP<br>图片 FTPS<br><br>+ 添加服务器</div>
+              <div class="content">
+                <div class="box">协议、地址、端口、账号、远程路径</div>
+                <div class="box">本地备份目录、本地上传文件夹</div>
+                <div class="buttons">
+                  <button class="btn secondary">备份</button>
+                  <button class="btn">上传</button>
+                </div>
+                <div class="box">上传前发现重复文件时，显示确认列表</div>
+                <div class="box">执行日志、成功/失败结果</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="body">
+          <h2>适合多服务器日常使用</h2>
+          <p>切换服务器清楚，配置和操作分区明确，后续加“测试连接”“复制服务器配置”也自然。</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <span>C. 向导式流程</span>
+        </div>
+        <div class="preview">
+          <div class="wire">
+            <div class="steps">
+              <div class="step">1 服务器</div>
+              <div class="step">2 路径</div>
+              <div class="step">3 确认</div>
+              <div class="step">4 结果</div>
+            </div>
+            <div class="box">当前步骤内容</div>
+            <div class="box">备份或上传详情</div>
+            <div class="buttons" style="justify-content:flex-end">
+              <button class="btn secondary">上一步</button>
+              <button class="btn">下一步</button>
+            </div>
+          </div>
+        </div>
+        <div class="body">
+          <h2>适合偶尔使用</h2>
+          <p>更谨慎，但每天重复操作会慢，不太符合你要的两个主按钮。</p>
+        </div>
+      </article>
+    </section>
+
+    <div class="note">上传按钮逻辑：先扫描远程路径里同名文件；如果有重复，弹出确认窗口，让你选择“覆盖选中文件”或“取消上传”。备份按钮只负责把远程路径完整下载到当前服务器配置的本地备份目录。</div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FTP备份上传工具 - 主界面线框</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --line: #cfd7e3;
+      --text: #1f2937;
+      --muted: #667085;
+      --accent: #0f766e;
+      --warn: #b45309;
+      --error: #b91c1c;
+      --readonly: #eef6f5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+      letter-spacing: 0;
+    }
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr 180px;
+    }
+    .topbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 12px 16px;
+      display: grid;
+      grid-template-columns: 220px 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+    .select, .input {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      padding: 0 10px;
+      color: var(--text);
+      font-size: 14px;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    button {
+      height: 34px;
+      border: 1px solid #0b5f59;
+      border-radius: 6px;
+      background: var(--accent);
+      color: white;
+      padding: 0 14px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    button.secondary {
+      background: #fff;
+      color: var(--text);
+      border-color: var(--line);
+    }
+    .main {
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 280px repeat(3, minmax(220px, 1fr));
+      gap: 12px;
+      min-height: 0;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      overflow: hidden;
+    }
+    .panel.readonly {
+      background: var(--readonly);
+    }
+    .panel h2 {
+      margin: 0;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tag {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 400;
+    }
+    .pathbar {
+      padding: 8px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .pathbar .input { width: 100%; height: 30px; font-size: 12px; }
+    .list {
+      padding: 8px;
+      overflow: auto;
+      font-size: 13px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 20px 1fr auto;
+      gap: 6px;
+      align-items: center;
+      min-height: 28px;
+      border-radius: 5px;
+      padding: 3px 5px;
+    }
+    .row:nth-child(2n) { background: rgba(15, 23, 42, 0.035); }
+    .meta { color: var(--muted); font-size: 12px; }
+    .paths {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+    .toolbar {
+      padding: 8px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .toolbar button {
+      height: 28px;
+      font-size: 12px;
+      padding: 0 8px;
+    }
+    textarea {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      resize: none;
+      padding: 10px;
+      font-family: Consolas, "Microsoft YaHei", monospace;
+      font-size: 13px;
+      outline: none;
+    }
+    .hint {
+      padding: 8px 10px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      background: #fafafa;
+    }
+    .log {
+      background: #101828;
+      color: #e5e7eb;
+      border-top: 1px solid #000;
+      padding: 10px 14px;
+      font-family: Consolas, monospace;
+      font-size: 13px;
+      overflow: auto;
+    }
+    .ok { color: #5eead4; }
+    .warning { color: #fbbf24; }
+    .error { color: #fca5a5; }
+    @media (max-width: 1100px) {
+      .main { grid-template-columns: 1fr; }
+      .app { grid-template-rows: auto auto 180px; }
+      .topbar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <select class="select">
+        <option>工序：默认工序</option>
+      </select>
+      <input class="input" value="根目录一致：/www/project  |  本地：D:\Release\project">
+      <div class="actions">
+        <button>备份</button>
+        <button>上传</button>
+        <button>Check</button>
+        <button class="secondary">设置</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="panel paths">
+        <h2>路径清单 <span class="tag">相对路径</span></h2>
+        <div class="toolbar">
+          <button class="secondary">导入</button>
+          <button class="secondary">清空</button>
+          <button class="secondary">保存清单</button>
+        </div>
+        <textarea>css/site.css
+images/logo.png
+templates/index.html
+new-folder/new-file.js</textarea>
+        <div class="hint">用于备份和 Check；上传按钮会按这些相对路径映射到起案服务器。</div>
+      </section>
+
+      <section class="panel readonly">
+        <h2>生产服务器 <span class="tag">只读，可复制</span></h2>
+        <div class="pathbar"><input class="input" value="/www/project"></div>
+        <div class="list">
+          <div class="row"><span>📁</span><span>css</span><span class="meta">目录</span></div>
+          <div class="row"><span>📁</span><span>images</span><span class="meta">目录</span></div>
+          <div class="row"><span>📄</span><span>templates/index.html</span><span class="meta">2026-06-20</span></div>
+          <div class="row"><span>📄</span><span>config/site.json</span><span class="meta">2026-06-18</span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>起案服务器 <span class="tag">读写，目标上传区</span></h2>
+        <div class="pathbar"><input class="input" value="/www/project"></div>
+        <div class="list">
+          <div class="row"><span>📁</span><span>css</span><span class="meta">目录</span></div>
+          <div class="row"><span>📁</span><span>images</span><span class="meta">目录</span></div>
+          <div class="row"><span>📄</span><span>css/site.css</span><span class="meta">待更新</span></div>
+          <div class="row"><span>📄</span><span>new-folder/new-file.js</span><span class="meta">新文件</span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>本地文件 <span class="tag">读写，可拖拽上传</span></h2>
+        <div class="pathbar"><input class="input" value="D:\Release\project"></div>
+        <div class="list">
+          <div class="row"><span>📁</span><span>css</span><span class="meta">目录</span></div>
+          <div class="row"><span>📁</span><span>images</span><span class="meta">目录</span></div>
+          <div class="row"><span>📄</span><span>css/site.css</span><span class="meta">已选择</span></div>
+          <div class="row"><span>📄</span><span>images/logo.png</span><span class="meta">已选择</span></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="log">
+      <div class="ok">[Normal] css/site.css：起案服务器存在路径对应文件，文件更新。</div>
+      <div class="error">[Error] new-folder/new-file.js：路径清单缺失，但起案服务器存在新文件。</div>
+      <div class="warning">[Warning] templates/index.html：起案服务器缺失，生产服务器存在，可能是新路径旧文件。</div>
+      <div class="error">[Error] missing/file.txt：生产服务器和起案服务器均缺失。</div>
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,59 @@
+# Local agent/Codex workspace state
+.agents/
+.codex/
+.superpowers/
+
+# Secrets and local runtime configuration
+.env
+.env.*
+!.env.example
+*.local
+*.local.*
+config.local.*
+profiles.local.*
+credentials.*
+secrets.*
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Runtime data produced by the app
+logs/
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+cache/
+runtime-data/
+backups/
+downloads/
+uploads/
+
+# Build and packaged output
+dist/
+build/
+out/
+release/
+*.exe
+*.msi
+*.zip
+*.7z
+*.rar
+
+# Dependency and language caches
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
