@@ -135,7 +135,6 @@ Replace `src/FtpBackupUploadTool.Core/FtpBackupUploadTool.Core.csproj` with:
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <NoWarn>SYSLIB0014</NoWarn>
   </PropertyGroup>
 </Project>
 ```
@@ -1444,6 +1443,8 @@ using System.Net;
 using FtpBackupUploadTool.Core.Models;
 using FtpBackupUploadTool.Core.Paths;
 
+#pragma warning disable SYSLIB0014
+
 namespace FtpBackupUploadTool.Core.Remote;
 
 public sealed class FtpRemoteFileClient : IRemoteFileClient
@@ -1582,6 +1583,8 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         return request;
     }
 }
+
+#pragma warning restore SYSLIB0014
 ```
 
 - [ ] **Step 3: Build and commit**
