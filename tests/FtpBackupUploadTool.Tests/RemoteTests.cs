@@ -5,6 +5,33 @@ namespace FtpBackupUploadTool.Tests;
 
 internal static class RemoteTests
 {
+    public static void FtpPathBuildsRootUriFromTrimmedRoot()
+    {
+        var ftpPath = new FtpPath("ftp.example.com", 2121, "/draft/");
+
+        var uri = ftpPath.For(null);
+
+        TestAssert.Equal("ftp://ftp.example.com:2121/draft/", uri.AbsoluteUri, "root uri");
+    }
+
+    public static void FtpPathAppendsRelativePathSegments()
+    {
+        var ftpPath = new FtpPath("ftp.example.com", 2021, "production");
+
+        var uri = ftpPath.For(RelativePath.Parse("css/site.css"));
+
+        TestAssert.Equal("ftp://ftp.example.com:2021/production/css/site.css", uri.AbsoluteUri, "file uri");
+    }
+
+    public static void FtpPathEscapesEachSegmentWithoutEscapingSeparators()
+    {
+        var ftpPath = new FtpPath("ftp.example.com", 2021, "/草稿 root/");
+
+        var uri = ftpPath.For(RelativePath.Parse("图片/hero image.png"));
+
+        TestAssert.Equal("ftp://ftp.example.com:2021/%E8%8D%89%E7%A8%BF%20root/%E5%9B%BE%E7%89%87/hero%20image.png", uri.AbsoluteUri, "escaped file uri");
+    }
+
     public static void LocalMirrorCanWriteAndRead()
     {
         var root = Path.Combine(Path.GetTempPath(), "ftp-tool-tests", Guid.NewGuid().ToString("N"));
