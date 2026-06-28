@@ -72,6 +72,29 @@ internal static class RemoteTests
         TestAssert.True(File.Exists(target), "canceled delete must not delete target file");
     }
 
+    public static void CanceledDownloadMissingFileThrowsCancellation()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "ftp-tool-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var client = new LocalMirrorRemoteClient(root);
+        var relative = RelativePath.Parse("css/missing.css");
+        using var destination = new MemoryStream();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var canceled = false;
+        try
+        {
+            client.DownloadAsync(relative, destination, cts.Token).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            canceled = true;
+        }
+
+        TestAssert.True(canceled, "already-canceled download should throw before missing file IO");
+    }
+
     public static void LocalMirrorRejectsSiblingPrefixEscape()
     {
         var parent = Path.Combine(Path.GetTempPath(), "ftp-tool-tests", Guid.NewGuid().ToString("N"));

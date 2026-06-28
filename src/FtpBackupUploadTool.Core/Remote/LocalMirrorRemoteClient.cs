@@ -57,6 +57,8 @@ public sealed class LocalMirrorRemoteClient : IRemoteFileClient
 
     public async Task DownloadAsync(RelativePath path, Stream destination, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         await using var source = File.OpenRead(ToFullPath(path));
         await source.CopyToAsync(destination, cancellationToken);
     }

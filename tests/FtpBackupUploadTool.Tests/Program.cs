@@ -12,6 +12,7 @@ var tests = new Action[]
     RemoteTests.LocalMirrorCanWriteAndRead,
     RemoteTests.CanceledUploadDoesNotCreateOrTruncateTargetFile,
     RemoteTests.CanceledDeleteDoesNotDeleteTargetFile,
+    RemoteTests.CanceledDownloadMissingFileThrowsCancellation,
     RemoteTests.LocalMirrorRejectsSiblingPrefixEscape
 };
 
