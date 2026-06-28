@@ -15,6 +15,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly CheckService checkService;
     private string pathListText = string.Empty;
     private string selectedProcess;
+    private bool isWorkflowRunning;
 
     public MainViewModel(BackupService backupService, UploadService uploadService, CheckService checkService)
     {
@@ -40,9 +41,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             FormatLog("工具界面已就绪")
         };
 
-        BackupCommand = new RelayCommand(async _ => await RunBackupAsync());
-        UploadCommand = new RelayCommand(async _ => await RunUploadAsync());
-        CheckCommand = new RelayCommand(async _ => await RunCheckAsync());
+        BackupCommand = new RelayCommand(async _ => await RunWorkflowAsync("Backup", RunBackupCoreAsync), _ => !IsWorkflowRunning);
+        UploadCommand = new RelayCommand(async _ => await RunWorkflowAsync("Upload", RunUploadCoreAsync), _ => !IsWorkflowRunning);
+        CheckCommand = new RelayCommand(async _ => await RunWorkflowAsync("Check", RunCheckCoreAsync), _ => !IsWorkflowRunning);
         OpenSettingsCommand = new RelayCommand(_ => SettingsRequested?.Invoke(this, EventArgs.Empty));
     }
 
@@ -69,6 +70,22 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     public string RootSummary { get; }
+
+    public bool IsWorkflowRunning
+    {
+        get => isWorkflowRunning;
+        private set
+        {
+            if (isWorkflowRunning == value)
+            {
+                return;
+            }
+
+            isWorkflowRunning = value;
+            OnPropertyChanged(nameof(IsWorkflowRunning));
+            RaiseWorkflowCommandCanExecuteChanged();
+        }
+    }
 
     public string PathListText
     {
@@ -108,66 +125,76 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private IReadOnlyList<RelativePath> ParsePaths() => PathListParser.Parse(PathListText);
 
-    private async Task RunBackupAsync()
+    private async Task RunWorkflowAsync(string operation, Func<Task> workflow)
     {
+        if (IsWorkflowRunning)
+        {
+            AddLog($"[Warning] {operation}: 已有操作正在执行");
+            return;
+        }
+
         try
         {
-            var paths = ParsePaths();
-            var result = await backupService.RunAsync(
-                paths,
-                "%USERPROFILE%\\Desktop",
-                "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup",
-                LogFieldOptions.All,
-                CancellationToken.None);
-
-            AppendLogs(result.Logs);
+            IsWorkflowRunning = true;
+            await workflow();
         }
         catch (Exception ex)
         {
-            AddErrorLog(ex);
+            AddErrorLog(operation, ex);
+        }
+        finally
+        {
+            IsWorkflowRunning = false;
         }
     }
 
-    private async Task RunUploadAsync()
+    private async Task RunBackupCoreAsync()
     {
-        try
-        {
-            var paths = ParsePaths();
-            var result = await uploadService.RunAsync(paths, CancellationToken.None);
-            AppendLogs(result.Logs);
-        }
-        catch (Exception ex)
-        {
-            AddErrorLog(ex);
-        }
+        var paths = ParsePaths();
+        var result = await backupService.RunAsync(
+            paths,
+            "%USERPROFILE%\\Desktop",
+            "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup",
+            LogFieldOptions.All,
+            CancellationToken.None);
+
+        AppendLogs(result.Logs);
     }
 
-    private async Task RunCheckAsync()
+    private async Task RunUploadCoreAsync()
     {
-        try
-        {
-            var paths = ParsePaths();
-            var result = await checkService.RunAsync(paths, CancellationToken.None);
-            AppendLogs(result.Logs);
-        }
-        catch (Exception ex)
-        {
-            AddErrorLog(ex);
-        }
+        var paths = ParsePaths();
+        var result = await uploadService.RunAsync(paths, CancellationToken.None);
+        AppendLogs(result.Logs);
+    }
+
+    private async Task RunCheckCoreAsync()
+    {
+        var paths = ParsePaths();
+        var result = await checkService.RunAsync(paths, CancellationToken.None);
+        AppendLogs(result.Logs);
     }
 
     private void AppendLogs(IReadOnlyList<OperationLogEntry> entries)
     {
         foreach (var log in entries)
         {
-            var path = log.Path?.Value ?? string.Empty;
-            AddLog($"[{log.Level}] {path}: {log.Message}");
+            var path = log.Path is null ? string.Empty : $" {log.Path.Value}:";
+            var error = string.IsNullOrWhiteSpace(log.Error) ? string.Empty : $" ({log.Error})";
+            AddLog($"[{log.Level}] {log.Operation}:{path} {log.Message}{error}");
         }
     }
 
-    private void AddErrorLog(Exception exception)
+    private void AddErrorLog(string operation, Exception exception)
     {
-        AddLog($"[Error] : {exception.Message}");
+        AddLog($"[Error] {operation}: {exception.Message}");
+    }
+
+    private void RaiseWorkflowCommandCanExecuteChanged()
+    {
+        ((RelayCommand)BackupCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)UploadCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)CheckCommand).RaiseCanExecuteChanged();
     }
 
     private static string FormatLog(string message) => $"{DateTime.Now:HH:mm:ss}  {message}";
