@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
 using FtpBackupUploadTool.App.Commands;
+using FtpBackupUploadTool.App.Runtime;
 using FtpBackupUploadTool.Core.Models;
 using FtpBackupUploadTool.Core.Paths;
 using FtpBackupUploadTool.Core.Services;
@@ -10,10 +11,12 @@ namespace FtpBackupUploadTool.App.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
-    private readonly BackupService backupService;
-    private readonly UploadService uploadService;
-    private readonly CheckService checkService;
+    private BackupService backupService;
+    private UploadService uploadService;
+    private CheckService checkService;
+    private ProcessConfig? currentProcess;
     private string pathListText = string.Empty;
+    private string rootSummary = string.Empty;
     private string selectedProcess;
     private bool isWorkflowRunning;
 
@@ -69,7 +72,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    public string RootSummary { get; }
+    public string RootSummary
+    {
+        get => rootSummary;
+        set
+        {
+            if (rootSummary == value)
+            {
+                return;
+            }
+
+            rootSummary = value;
+            OnPropertyChanged(nameof(RootSummary));
+        }
+    }
 
     public bool IsWorkflowRunning
     {
@@ -123,6 +139,25 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Logs.Add(FormatLog(message));
     }
 
+    public void LoadProcess(ProcessConfig config, WorkflowServices services)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(services);
+
+        currentProcess = config;
+        backupService = services.BackupService;
+        uploadService = services.UploadService;
+        checkService = services.CheckService;
+
+        if (!Processes.Contains(config.Name))
+        {
+            Processes.Add(config.Name);
+        }
+
+        SelectedProcess = config.Name;
+        RootSummary = $"根目录一致：{config.ProductionServer.RootPath} | 本地：{config.LocalRootPath}";
+    }
+
     private IReadOnlyList<RelativePath> ParsePaths() => PathListParser.Parse(PathListText);
 
     private async Task RunWorkflowAsync(string operation, Func<Task> workflow)
@@ -150,12 +185,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private async Task RunBackupCoreAsync()
     {
+        if (currentProcess is null)
+        {
+            AddLog("[Error] Backup: 未加载已保存工序，请先打开设置并保存配置");
+            return;
+        }
+
         var paths = ParsePaths();
         var result = await backupService.RunAsync(
             paths,
-            "%USERPROFILE%\\Desktop",
-            "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup",
-            LogFieldOptions.All,
+            currentProcess.Backup.BackupDirectory,
+            currentProcess.Backup.FolderNameTemplate,
+            currentProcess.Backup.LogFields,
             CancellationToken.None);
 
         AppendLogs(result.Logs);

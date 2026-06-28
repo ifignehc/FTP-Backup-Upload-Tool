@@ -1,9 +1,12 @@
 using System.IO;
 using System.Windows;
+using FtpBackupUploadTool.App.Runtime;
 using FtpBackupUploadTool.App.ViewModels;
 using FtpBackupUploadTool.App.Views;
+using FtpBackupUploadTool.Core.Config;
 using FtpBackupUploadTool.Core.Logging;
 using FtpBackupUploadTool.Core.Remote;
+using FtpBackupUploadTool.Core.Security;
 using FtpBackupUploadTool.Core.Services;
 
 namespace FtpBackupUploadTool.App;
@@ -30,6 +33,31 @@ public partial class MainWindow : Window
             new CheckService(production, draft));
         viewModel.SettingsRequested += OnSettingsRequested;
         DataContext = viewModel;
+        Loaded += OnLoaded;
+    }
+
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var store = new AppConfigStore(AppConfigStore.GetDefaultConfigPath());
+            var config = await store.LoadAsync(CancellationToken.None);
+            var selected = config.Processes.FirstOrDefault();
+
+            if (selected is null)
+            {
+                viewModel.AddLog("[Warning] 未找到已保存工序，请打开设置完成配置");
+                return;
+            }
+
+            var factory = new ProcessRuntimeFactory(new DpapiPasswordProtector());
+            viewModel.LoadProcess(selected, factory.Create(selected));
+            viewModel.AddLog($"已加载配置：{selected.Name}");
+        }
+        catch (Exception ex)
+        {
+            viewModel.AddLog($"[Error] 加载配置失败：{ex.Message}");
+        }
     }
 
     private void OnSettingsRequested(object? sender, EventArgs e)
