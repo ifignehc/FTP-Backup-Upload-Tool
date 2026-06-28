@@ -19,7 +19,7 @@ dotnet build FtpBackupUploadTool.sln
 dotnet run --project tests/FtpBackupUploadTool.Tests/FtpBackupUploadTool.Tests.csproj
 ```
 
-## 发布便携版
+## 发布便携版 exe
 
 ```powershell
 ./scripts/publish-portable.ps1
