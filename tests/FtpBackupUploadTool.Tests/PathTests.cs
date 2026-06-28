@@ -55,6 +55,21 @@ internal static class PathTests
         TestAssert.True(failed, "drive-qualified paths must be rejected");
     }
 
+    public static void RejectRootedWindowsPath()
+    {
+        var failed = false;
+        try
+        {
+            RelativePath.Parse(@"\temp\file.txt");
+        }
+        catch (ArgumentException)
+        {
+            failed = true;
+        }
+
+        TestAssert.True(failed, "single-rooted Windows paths must be rejected");
+    }
+
     public static void ParsePathListText()
     {
         var input = "css/site.css\r\n\r\n images\\\\logo.png \r\n";

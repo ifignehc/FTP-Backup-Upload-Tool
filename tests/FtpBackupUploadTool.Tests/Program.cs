@@ -6,6 +6,7 @@ var tests = new Action[]
     PathTests.RejectParentTraversal,
     PathTests.RejectRootedDrivePath,
     PathTests.RejectDriveQualifiedPath,
+    PathTests.RejectRootedWindowsPath,
     PathTests.ParsePathListText,
     PathTests.ParseCommaSeparatedPathListText
 };

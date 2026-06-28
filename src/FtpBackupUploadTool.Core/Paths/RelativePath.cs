@@ -44,7 +44,7 @@ public sealed record RelativePath
             return true;
         }
 
-        return path.StartsWith(@"\\") || path.StartsWith("//");
+        return path.StartsWith('\\') || path.StartsWith("//");
     }
 
     public override string ToString() => Value;
