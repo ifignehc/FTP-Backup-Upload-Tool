@@ -1,6 +1,8 @@
 using FtpBackupUploadTool.Core.Config;
 using FtpBackupUploadTool.Core.Models;
 using FtpBackupUploadTool.Core.Security;
+using System.Security.AccessControl;
+using System.Security.Principal;
 
 namespace FtpBackupUploadTool.Tests;
 
@@ -90,10 +92,101 @@ internal static class ConfigTests
         TestAssert.Equal("默认工序", loaded.Processes[0].Name, "canceled save should preserve original config");
     }
 
+    public static void FailedReplacePreservesExistingConfig()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "ftp-tool-config", Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(dir, "appsettings.json");
+        var store = new AppConfigStore(path);
+        var original = new AppConfig(new[]
+        {
+            new ProcessConfig(
+                "原始工序",
+                new ServerConfig("prod", 21, "prod_user", "enc1", "/www/project"),
+                new ServerConfig("draft", 21, "draft_user", "enc2", "/www/project"),
+                @"D:\Release\project",
+                @".\path-lists\default.txt",
+                new BackupConfig("%USERPROFILE%\\Desktop", "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup", LogFieldOptions.All))
+        });
+        var replacement = new AppConfig(new[]
+        {
+            new ProcessConfig(
+                "新工序",
+                new ServerConfig("prod2", 21, "prod_user2", "enc3", "/www/project2"),
+                new ServerConfig("draft2", 21, "draft_user2", "enc4", "/www/project2"),
+                @"D:\Release\project2",
+                @".\path-lists\replacement.txt",
+                new BackupConfig("%USERPROFILE%\\Desktop", "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup", LogFieldOptions.All))
+        });
+
+        store.SaveAsync(original, CancellationToken.None).GetAwaiter().GetResult();
+
+        var denyReadRule = AddDenyReadRule(path);
+        var replaceFailed = false;
+
+        try
+        {
+            store.SaveAsync(replacement, CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch (IOException)
+        {
+            replaceFailed = true;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            replaceFailed = true;
+        }
+        finally
+        {
+            TryRemoveAccessRule(path, denyReadRule);
+        }
+
+        if (!replaceFailed)
+        {
+            throw new InvalidOperationException("Replacing an unreadable config should throw.");
+        }
+
+        var loaded = store.LoadAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+        TestAssert.Equal("原始工序", loaded.Processes[0].Name, "failed replace should preserve original config");
+    }
+
     private sealed class InMemoryPasswordProtector : IPasswordProtector
     {
         public string Protect(string plainText) => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"protected:{plainText}"));
 
         public string Unprotect(string protectedText) => System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(protectedText)).Replace("protected:", "", StringComparison.Ordinal);
+    }
+
+    private static FileSystemAccessRule AddDenyReadRule(string path)
+    {
+        var user = WindowsIdentity.GetCurrent().User ?? throw new InvalidOperationException("Current Windows user SID is unavailable.");
+        var rule = new FileSystemAccessRule(user, FileSystemRights.Read, AccessControlType.Deny);
+        var fileInfo = new FileInfo(path);
+        var security = fileInfo.GetAccessControl();
+        security.AddAccessRule(rule);
+        fileInfo.SetAccessControl(security);
+        return rule;
+    }
+
+    private static void TryRemoveAccessRule(string path, FileSystemAccessRule rule)
+    {
+        try
+        {
+            if (!File.Exists(path))
+            {
+                return;
+            }
+
+            var fileInfo = new FileInfo(path);
+            var security = fileInfo.GetAccessControl();
+            security.RemoveAccessRuleSpecific(rule);
+            fileInfo.SetAccessControl(security);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 }

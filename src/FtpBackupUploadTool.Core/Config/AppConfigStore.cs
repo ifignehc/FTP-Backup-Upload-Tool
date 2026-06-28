@@ -57,7 +57,7 @@ public sealed class AppConfigStore
 
             if (File.Exists(filePath))
             {
-                ReplaceExistingFile(tempPath, filePath);
+                File.Replace(tempPath, filePath, null);
             }
             else
             {
@@ -110,19 +110,6 @@ public sealed class AppConfigStore
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         return Path.Combine(appData, "FtpBackupUploadTool", "appsettings.json");
-    }
-
-    private static void ReplaceExistingFile(string sourceFileName, string destinationFileName)
-    {
-        try
-        {
-            File.Replace(sourceFileName, destinationFileName, null);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException or NotSupportedException)
-        {
-            File.Delete(destinationFileName);
-            File.Move(sourceFileName, destinationFileName);
-        }
     }
 
     private static void TryDeleteFile(string path)

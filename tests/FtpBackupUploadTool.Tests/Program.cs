@@ -13,6 +13,7 @@ var tests = new Action[]
     ConfigTests.DpapiPasswordRoundTripForCurrentUser,
     ConfigTests.ConfigRoundTripPreservesProcess,
     ConfigTests.CanceledSavePreservesExistingConfig,
+    ConfigTests.FailedReplacePreservesExistingConfig,
     RemoteTests.LocalMirrorCanWriteAndRead,
     RemoteTests.CanceledUploadDoesNotCreateOrTruncateTargetFile,
     RemoteTests.CanceledDeleteDoesNotDeleteTargetFile,
