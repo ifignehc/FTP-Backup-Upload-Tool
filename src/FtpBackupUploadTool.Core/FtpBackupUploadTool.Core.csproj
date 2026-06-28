@@ -4,6 +4,5 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <NoWarn>SYSLIB0014</NoWarn>
   </PropertyGroup>
 </Project>

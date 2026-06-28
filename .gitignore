@@ -33,6 +33,8 @@ downloads/
 uploads/
 
 # Build and packaged output
+bin/
+obj/
 dist/
 build/
 out/
