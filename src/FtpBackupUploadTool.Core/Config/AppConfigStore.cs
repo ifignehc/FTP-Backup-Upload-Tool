@@ -41,8 +41,34 @@ public sealed class AppConfigStore
             Directory.CreateDirectory(directory);
         }
 
-        await using var stream = File.Create(filePath);
-        await JsonSerializer.SerializeAsync(stream, config, JsonOptions, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var tempPath = $"{filePath}.{Guid.NewGuid():N}.tmp";
+
+        try
+        {
+            await using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                await JsonSerializer.SerializeAsync(stream, config, JsonOptions, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (File.Exists(filePath))
+            {
+                ReplaceExistingFile(tempPath, filePath);
+            }
+            else
+            {
+                File.Move(tempPath, filePath);
+            }
+        }
+        catch
+        {
+            TryDeleteFile(tempPath);
+            throw;
+        }
     }
 
     public static string GetDefaultConfigPath()
@@ -84,5 +110,35 @@ public sealed class AppConfigStore
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         return Path.Combine(appData, "FtpBackupUploadTool", "appsettings.json");
+    }
+
+    private static void ReplaceExistingFile(string sourceFileName, string destinationFileName)
+    {
+        try
+        {
+            File.Replace(sourceFileName, destinationFileName, null);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException or NotSupportedException)
+        {
+            File.Delete(destinationFileName);
+            File.Move(sourceFileName, destinationFileName);
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 }
