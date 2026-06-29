@@ -1,5 +1,8 @@
 using FtpBackupUploadTool.Core.Paths;
 using FtpBackupUploadTool.Core.Remote;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 
 namespace FtpBackupUploadTool.Tests;
 
@@ -220,6 +223,21 @@ internal static class RemoteTests
         TestAssert.True(failed, "path resolving under sibling root2 must not be treated as inside root");
     }
 
+    public static void FtpClientFallsBackToParentListingWhenSizeIsUnavailable()
+    {
+        using var server = new MetadataUnavailableFtpServer(
+            "code/DDR5/SP16G/CLIENT/4SP66SR0_2V5.xml",
+            "-rw-r--r-- 1 owner group 42 Jun 29 13:34 4SP66SR0_2V5.xml");
+        var client = new FtpRemoteFileClient("127.0.0.1", server.Port, "/", "user", "pass");
+
+        var entry = client.GetFileEntryAsync(
+            RelativePath.Parse("code/DDR5/SP16G/CLIENT/4SP66SR0_2V5.xml"),
+            CancellationToken.None).GetAwaiter().GetResult();
+
+        TestAssert.True(entry is not null, "FTP client should use parent LIST when direct metadata commands are unavailable: " + server.CommandLog);
+        TestAssert.Equal(42L, entry!.Size, "listed file size should be used");
+    }
+
     private static RelativePath CreateRelativePath(string value)
     {
         var constructor = typeof(RelativePath).GetConstructor(
@@ -229,6 +247,189 @@ internal static class RemoteTests
             modifiers: null);
         TestAssert.True(constructor is not null, "RelativePath private constructor should exist");
         return (RelativePath)constructor!.Invoke(new object[] { value });
+    }
+
+    private sealed class MetadataUnavailableFtpServer : IDisposable
+    {
+        private readonly TcpListener _listener;
+        private readonly string _filePath;
+        private readonly string _parentPath;
+        private readonly string _listLine;
+        private readonly List<string> _commands = new();
+        private readonly CancellationTokenSource _cts = new();
+        private readonly Task _serverTask;
+
+        public MetadataUnavailableFtpServer(string filePath, string listLine)
+        {
+            _filePath = "/" + filePath.Trim('/');
+            var index = _filePath.LastIndexOf('/');
+            _parentPath = index <= 0 ? "/" : _filePath[..index];
+            _listLine = listLine;
+            _listener = new TcpListener(IPAddress.Loopback, 0);
+            _listener.Start();
+            Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
+            _serverTask = Task.Run(AcceptLoop);
+        }
+
+        public int Port { get; }
+
+        public string CommandLog
+        {
+            get
+            {
+                lock (_commands)
+                {
+                    return string.Join(" | ", _commands);
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            _cts.Cancel();
+            _listener.Stop();
+            try
+            {
+                _serverTask.Wait(TimeSpan.FromSeconds(2));
+            }
+            catch (AggregateException)
+            {
+            }
+
+            _cts.Dispose();
+        }
+
+        private async Task AcceptLoop()
+        {
+            while (!_cts.IsCancellationRequested)
+            {
+                TcpClient client;
+                try
+                {
+                    client = await _listener.AcceptTcpClientAsync(_cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return;
+                }
+
+                _ = Task.Run(() => HandleClientAsync(client), _cts.Token);
+            }
+        }
+
+        private async Task HandleClientAsync(TcpClient client)
+        {
+            using (client)
+            using (var stream = client.GetStream())
+            using (var reader = new StreamReader(stream, Encoding.ASCII))
+            using (var writer = new StreamWriter(stream, Encoding.ASCII) { NewLine = "\r\n", AutoFlush = true })
+            {
+                await writer.WriteLineAsync("220 test ftp ready");
+                TcpListener? dataListener = null;
+                var currentDirectory = "/";
+
+                while (!_cts.IsCancellationRequested)
+                {
+                    var line = await reader.ReadLineAsync();
+                    if (line is null)
+                    {
+                        return;
+                    }
+
+                    lock (_commands)
+                    {
+                        _commands.Add(line);
+                    }
+
+                    var command = line.Split(' ', 2)[0].ToUpperInvariant();
+                    var argument = line.Contains(' ', StringComparison.Ordinal) ? line.Split(' ', 2)[1] : string.Empty;
+
+                    switch (command)
+                    {
+                        case "USER":
+                            await writer.WriteLineAsync("331 password required");
+                            break;
+                        case "PASS":
+                            await writer.WriteLineAsync("230 logged in");
+                            break;
+                        case "SYST":
+                            await writer.WriteLineAsync("215 UNIX Type: L8");
+                            break;
+                        case "FEAT":
+                            await writer.WriteLineAsync("211 no features");
+                            break;
+                        case "PWD":
+                            await writer.WriteLineAsync($"257 \"{currentDirectory}\" is current directory");
+                            break;
+                        case "CWD":
+                            currentDirectory = ResolveFtpPath(currentDirectory, argument);
+                            await writer.WriteLineAsync("250 directory changed");
+                            break;
+                        case "TYPE":
+                            await writer.WriteLineAsync("200 type set");
+                            break;
+                        case "SIZE":
+                        case "MDTM":
+                            await writer.WriteLineAsync(ResolveFtpPath(currentDirectory, argument) == _filePath
+                                ? "550 metadata unavailable"
+                                : "550 file unavailable");
+                            break;
+                        case "PASV":
+                            dataListener?.Stop();
+                            dataListener = new TcpListener(IPAddress.Loopback, 0);
+                            dataListener.Start();
+                            var port = ((IPEndPoint)dataListener.LocalEndpoint).Port;
+                            await writer.WriteLineAsync($"227 Entering Passive Mode (127,0,0,1,{port / 256},{port % 256})");
+                            break;
+                        case "LIST":
+                            if (dataListener is null || ResolveFtpPath(currentDirectory, argument) != _parentPath)
+                            {
+                                await writer.WriteLineAsync("550 directory unavailable");
+                                break;
+                            }
+
+                            await writer.WriteLineAsync("150 opening data connection");
+                            using (var dataClient = await dataListener.AcceptTcpClientAsync(_cts.Token))
+                            using (var dataStream = dataClient.GetStream())
+                            using (var dataWriter = new StreamWriter(dataStream, Encoding.ASCII) { NewLine = "\r\n", AutoFlush = true })
+                            {
+                                await dataWriter.WriteLineAsync(_listLine);
+                            }
+
+                            dataListener.Stop();
+                            dataListener = null;
+                            await writer.WriteLineAsync("226 transfer complete");
+                            break;
+                        case "QUIT":
+                            await writer.WriteLineAsync("221 goodbye");
+                            return;
+                        default:
+                            await writer.WriteLineAsync("200 ok");
+                            break;
+                    }
+                }
+            }
+        }
+
+        private static string ResolveFtpPath(string currentDirectory, string value)
+        {
+            var path = Uri.UnescapeDataString(value.Trim().Replace('\\', '/'));
+            if (path.Length == 0)
+            {
+                return currentDirectory;
+            }
+
+            if (path.StartsWith("/", StringComparison.Ordinal))
+            {
+                return path;
+            }
+
+            return currentDirectory.TrimEnd('/') + "/" + path;
+        }
     }
 
     private sealed class FailingReadStream : Stream

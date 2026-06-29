@@ -154,7 +154,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        await CopyFilesAsync(filePaneClipboard.Source, target.Value, filePaneClipboard.Files);
+        await CopyFilesAsync(filePaneClipboard.Source, target.Value, filePaneClipboard.Files, GetPaneCurrentPath(target.Value));
     }
 
     private async void OnFilePaneFilesDropped(object sender, FilePaneDropEventArgs e)
@@ -167,7 +167,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        await CopyFilesAsync(source.Value, target.Value, e.Files);
+        await CopyFilesAsync(source.Value, target.Value, e.Files, GetPaneCurrentPath(target.Value));
     }
 
     private async void OnFilePaneDeleteRequested(object sender, IReadOnlyList<FileEntry> files)
@@ -207,7 +207,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task CopyFilesAsync(FilePaneKind source, FilePaneKind target, IReadOnlyList<FileEntry> files)
+    private async Task CopyFilesAsync(
+        FilePaneKind source,
+        FilePaneKind target,
+        IReadOnlyList<FileEntry> files,
+        string targetDirectory)
     {
         if (target == FilePaneKind.Production)
         {
@@ -230,13 +234,14 @@ public partial class MainWindow : Window
         {
             foreach (var file in files)
             {
+                var destinationPath = CopyPathResolver.ResolveDestinationPath(targetDirectory, file.Path);
                 if (target == FilePaneKind.Draft)
                 {
-                    await CopyToDraftAsync(process, services, source, file.Path);
+                    await CopyToDraftAsync(process, services, source, file.Path, destinationPath);
                 }
                 else if (target == FilePaneKind.Local)
                 {
-                    await CopyToLocalAsync(process, services, source, file.Path);
+                    await CopyToLocalAsync(process, services, source, file.Path, destinationPath);
                 }
             }
 
@@ -252,61 +257,64 @@ public partial class MainWindow : Window
         ProcessConfig process,
         WorkflowServices services,
         FilePaneKind source,
-        RelativePath path)
+        RelativePath sourcePath,
+        RelativePath destinationPath)
     {
-        var parent = GetParent(path);
+        var parent = GetParent(destinationPath);
         if (parent is not null && !await services.DraftClient.DirectoryExistsAsync(parent, CancellationToken.None))
         {
-            viewModel.AddLog($"[Error] Copy {path.Value}: 起案服务器目标父文件夹不存在");
+            viewModel.AddLog($"[Error] Copy {destinationPath.Value}: 起案服务器目标父文件夹不存在");
             return;
         }
 
         if (source == FilePaneKind.Local)
         {
-            await using var localSource = File.OpenRead(ToLocalPath(process, path));
-            await services.DraftClient.UploadAsync(path, localSource, CancellationToken.None);
+            await using var localSource = File.OpenRead(ToLocalPath(process, sourcePath));
+            await services.DraftClient.UploadAsync(destinationPath, localSource, CancellationToken.None);
         }
         else
         {
-            await CopyRemoteToDraftAsync(GetRemoteClient(services, source), services.DraftClient, path);
+            await CopyRemoteToDraftAsync(GetRemoteClient(services, source), services.DraftClient, sourcePath, destinationPath);
         }
 
-        viewModel.AddLog($"[Normal] Copy {path.Value}: 已复制到起案服务器");
+        viewModel.AddLog($"[Normal] Copy {FormatCopyPath(sourcePath, destinationPath)}: 已复制到起案服务器");
     }
 
     private async Task CopyToLocalAsync(
         ProcessConfig process,
         WorkflowServices services,
         FilePaneKind source,
-        RelativePath path)
+        RelativePath sourcePath,
+        RelativePath destinationPath)
     {
         if (source == FilePaneKind.Local)
         {
-            viewModel.AddLog($"[Warning] Copy {path.Value}: 来源和目标均为本地，已跳过");
+            viewModel.AddLog($"[Warning] Copy {sourcePath.Value}: 来源和目标均为本地，已跳过");
             return;
         }
 
-        var destination = ToLocalPath(process, path);
+        var destination = ToLocalPath(process, destinationPath);
         Directory.CreateDirectory(Path.GetDirectoryName(destination) ?? process.LocalRootPath);
-        await DownloadToLocalFileAsync(GetRemoteClient(services, source), path, destination);
-        viewModel.AddLog($"[Normal] Copy {path.Value}: 已复制到本地");
+        await DownloadToLocalFileAsync(GetRemoteClient(services, source), sourcePath, destination);
+        viewModel.AddLog($"[Normal] Copy {FormatCopyPath(sourcePath, destinationPath)}: 已复制到本地");
     }
 
     private static async Task CopyRemoteToDraftAsync(
         IRemoteFileClient sourceClient,
         IRemoteFileClient draftClient,
-        RelativePath path)
+        RelativePath sourcePath,
+        RelativePath destinationPath)
     {
         var tempPath = Path.GetTempFileName();
         try
         {
             await using (var tempDestination = File.Create(tempPath))
             {
-                await sourceClient.DownloadAsync(path, tempDestination, CancellationToken.None);
+                await sourceClient.DownloadAsync(sourcePath, tempDestination, CancellationToken.None);
             }
 
             await using var tempSource = File.OpenRead(tempPath);
-            await draftClient.UploadAsync(path, tempSource, CancellationToken.None);
+            await draftClient.UploadAsync(destinationPath, tempSource, CancellationToken.None);
         }
         finally
         {
@@ -412,6 +420,24 @@ public partial class MainWindow : Window
             _ when ReferenceEquals(sender, LocalFilePane) => FilePaneKind.Local,
             _ => null
         };
+    }
+
+    private string GetPaneCurrentPath(FilePaneKind pane)
+    {
+        return pane switch
+        {
+            FilePaneKind.Production => viewModel.ProductionPane.CurrentPath,
+            FilePaneKind.Draft => viewModel.DraftPane.CurrentPath,
+            FilePaneKind.Local => viewModel.LocalPane.CurrentPath,
+            _ => "/"
+        };
+    }
+
+    private static string FormatCopyPath(RelativePath sourcePath, RelativePath destinationPath)
+    {
+        return sourcePath.Value.Equals(destinationPath.Value, StringComparison.OrdinalIgnoreCase)
+            ? destinationPath.Value
+            : $"{sourcePath.Value} -> {destinationPath.Value}";
     }
 
     private static string GetPaneLabel(FilePaneKind pane)

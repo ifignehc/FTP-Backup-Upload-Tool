@@ -27,9 +27,6 @@ public sealed class CheckService
         cancellationToken.ThrowIfCancellationRequested();
 
         var uniquePaths = GetUniquePaths(paths);
-        var listedPaths = new HashSet<string>(
-            uniquePaths.Select(path => path.Value),
-            StringComparer.OrdinalIgnoreCase);
         var draftFilePaths = new HashSet<string>(
             draftEntries.Where(entry => !entry.IsDirectory).Select(entry => entry.Path.Value),
             StringComparer.OrdinalIgnoreCase);
@@ -71,23 +68,6 @@ public sealed class CheckService
                     path,
                     "文件缺失：起案服务器和生产服务器均不存在该文件。"));
             }
-        }
-
-        foreach (var entry in draftEntries.Where(entry => !entry.IsDirectory))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (!listedPaths.Add(entry.Path.Value))
-            {
-                continue;
-            }
-
-            logs.Add(new OperationLogEntry(
-                DateTimeOffset.Now,
-                OperationLogLevel.Error,
-                Operation,
-                entry.Path,
-                "路径缺失：起案服务器存在新文件，但路径清单中没有该路径。"));
         }
 
         return new CheckRunResult(logs);

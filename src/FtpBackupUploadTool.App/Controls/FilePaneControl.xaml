@@ -49,7 +49,7 @@
                 <GridView>
                     <GridViewColumn Width="160" Header="名称/路径" DisplayMemberBinding="{Binding DisplayName}" />
                     <GridViewColumn Width="80" Header="大小" DisplayMemberBinding="{Binding SizeDisplay}" />
-                    <GridViewColumn Width="150" Header="修改时间" DisplayMemberBinding="{Binding LastModified}" />
+                    <GridViewColumn Width="150" Header="修改时间" DisplayMemberBinding="{Binding LastModifiedDisplay}" />
                 </GridView>
             </ListView.View>
         </ListView>

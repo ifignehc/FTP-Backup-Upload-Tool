@@ -7,7 +7,7 @@ namespace FtpBackupUploadTool.Tests;
 
 internal static class CheckServiceTests
 {
-    public static void CheckReturnsAllFourStatuses()
+    public static void CheckIgnoresDraftFilesThatAreNotInPathList()
     {
         var draftRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-check-draft", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(draftRoot, "css"));
@@ -31,9 +31,9 @@ internal static class CheckServiceTests
 
         var result = service.RunAsync(paths, CancellationToken.None).GetAwaiter().GetResult();
 
-        TestAssert.Equal(4, result.Logs.Count, "check should emit one log per detected status");
+        TestAssert.Equal(3, result.Logs.Count, "check should only emit logs for paths in the list");
         AssertLog(result.Logs, "css/site.css", OperationLogLevel.Normal, "文件更新");
-        AssertLog(result.Logs, "images/new.png", OperationLogLevel.Error, "路径缺失");
+        AssertNoLog(result.Logs, "images/new.png");
         AssertLog(result.Logs, "js/legacy.js", OperationLogLevel.Warning, "新路径");
         AssertLog(result.Logs, "docs/missing.txt", OperationLogLevel.Error, "文件缺失");
     }
@@ -72,5 +72,11 @@ internal static class CheckServiceTests
         TestAssert.Equal(level, log!.Level, $"{path} should have expected level");
         TestAssert.Equal("Check", log.Operation, $"{path} should have Check operation");
         TestAssert.True(log.Message.Contains(messageFragment, StringComparison.Ordinal), $"{path} should mention {messageFragment}");
+    }
+
+    private static void AssertNoLog(IReadOnlyList<OperationLogEntry> logs, string path)
+    {
+        var log = logs.SingleOrDefault(entry => entry.Path?.Value.Equals(path, StringComparison.OrdinalIgnoreCase) == true);
+        TestAssert.True(log is null, $"expected no log for {path}");
     }
 }

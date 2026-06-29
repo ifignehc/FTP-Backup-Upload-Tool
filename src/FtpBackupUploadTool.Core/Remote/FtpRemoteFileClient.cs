@@ -85,7 +85,7 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         }
         catch (WebException ex) when (IsNotFound(ex))
         {
-            return null;
+            return await TryGetFileEntryFromParentListingAsync(path, cancellationToken);
         }
 
         DateTimeOffset? lastModified;
@@ -95,7 +95,7 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         }
         catch (WebException ex) when (IsNotFound(ex))
         {
-            return null;
+            lastModified = null;
         }
 
         return new FileEntry(path, false, size, lastModified);
@@ -274,6 +274,27 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
             .Select(GetLastPathSegment)
             .Where(name => !string.IsNullOrWhiteSpace(name) && !IsSelfOrParent(name))
             .ToArray();
+    }
+
+    private async Task<FileEntry?> TryGetFileEntryFromParentListingAsync(RelativePath path, CancellationToken cancellationToken)
+    {
+        var parent = GetParentPath(path);
+        var fileName = GetLastPathSegment(path.Value);
+
+        IReadOnlyList<FileEntry> entries;
+        try
+        {
+            entries = await ListDirectoryAsync(parent, cancellationToken);
+        }
+        catch (WebException ex) when (IsNotFound(ex))
+        {
+            return null;
+        }
+
+        return entries.FirstOrDefault(entry =>
+            !entry.IsDirectory
+            && entry.Path.Value.Equals(path.Value, StringComparison.Ordinal)
+            && GetLastPathSegment(entry.Path.Value).Equals(fileName, StringComparison.Ordinal));
     }
 
     private async Task<IReadOnlyList<string>> ReadLinesAsync(
@@ -523,6 +544,12 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         var directory = index < 0 ? string.Empty : path.Value[..(index + 1)];
         var fileName = index < 0 ? path.Value : path.Value[(index + 1)..];
         return RelativePath.Parse($"{directory}.{fileName}.{Guid.NewGuid():N}.tmp");
+    }
+
+    private static RelativePath? GetParentPath(RelativePath path)
+    {
+        var index = path.Value.LastIndexOf('/');
+        return index < 0 ? null : RelativePath.Parse(path.Value[..index]);
     }
 
     private static string GetLastPathSegment(string value)

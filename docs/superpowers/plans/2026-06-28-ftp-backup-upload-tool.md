@@ -1274,7 +1274,7 @@ namespace FtpBackupUploadTool.Tests;
 
 internal static class CheckServiceTests
 {
-    public static void CheckReturnsAllFourStatuses()
+    public static void CheckIgnoresDraftFilesThatAreNotInPathList()
     {
         var prodRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-prod", Guid.NewGuid().ToString("N"));
         var draftRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-draft", Guid.NewGuid().ToString("N"));
@@ -1294,14 +1294,14 @@ internal static class CheckServiceTests
         }, CancellationToken.None).GetAwaiter().GetResult().Logs;
 
         TestAssert.True(logs.Any(x => x.Level == OperationLogLevel.Normal && x.Path?.Value == "css/site.css"), "normal file update");
-        TestAssert.True(logs.Any(x => x.Level == OperationLogLevel.Error && x.Path?.Value == "extra/new.js"), "path missing error");
+        TestAssert.True(!logs.Any(x => x.Path?.Value == "extra/new.js"), "ignore draft file outside path list");
         TestAssert.True(logs.Any(x => x.Level == OperationLogLevel.Warning && x.Path?.Value == "old/file.txt"), "new path old file warning");
         TestAssert.True(logs.Any(x => x.Level == OperationLogLevel.Error && x.Path?.Value == "missing/file.txt"), "missing file error");
     }
 }
 ```
 
-Add `CheckServiceTests.CheckReturnsAllFourStatuses` to `Program.cs`.
+Add `CheckServiceTests.CheckIgnoresDraftFilesThatAreNotInPathList` to `Program.cs`.
 
 - [ ] **Step 2: Run tests and verify failure**
 
@@ -1344,17 +1344,8 @@ public sealed class CheckService
     public async Task<CheckRunResult> RunAsync(IReadOnlyList<RelativePath> pathList, CancellationToken cancellationToken)
     {
         var logs = new List<OperationLogEntry>();
-        var listed = pathList.ToDictionary(path => path.Value, path => path, StringComparer.OrdinalIgnoreCase);
         var draftFiles = await _draft.ListRecursiveAsync(cancellationToken);
         var draftSet = draftFiles.Where(file => !file.IsDirectory).ToDictionary(file => file.Path.Value, file => file.Path, StringComparer.OrdinalIgnoreCase);
-
-        foreach (var draftPath in draftSet.Values)
-        {
-            if (!listed.ContainsKey(draftPath.Value))
-            {
-                logs.Add(new OperationLogEntry(DateTimeOffset.Now, OperationLogLevel.Error, "Check", draftPath, "路径缺失：起案服务器存在新文件"));
-            }
-        }
 
         foreach (var path in pathList)
         {
@@ -1392,7 +1383,7 @@ git commit -m "feat: add check workflow"
 Expected test output includes:
 
 ```text
-PASS CheckReturnsAllFourStatuses
+PASS CheckIgnoresDraftFilesThatAreNotInPathList
 ```
 
 ---
@@ -2685,7 +2676,7 @@ Spec coverage:
 - Three file panes and production read-only behavior: Tasks 9, 11, and 15.
 - Backup workflow and backup log: Task 5.
 - Upload workflow and missing target parent error: Task 6.
-- Check four statuses and draft recursive scan: Task 7.
+- Check three statuses and draft recursive scan: Task 7.
 - Settings window: Task 10.
 - Saved config to real FTP runtime: Task 13.
 - Config storage and DPAPI password protection: Task 4.

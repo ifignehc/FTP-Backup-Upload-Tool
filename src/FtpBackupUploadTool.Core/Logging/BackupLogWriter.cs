@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using FtpBackupUploadTool.Core.Formatting;
 using FtpBackupUploadTool.Core.Models;
 using FtpBackupUploadTool.Core.Paths;
 
@@ -18,8 +19,6 @@ public sealed record BackupLogRow(
 
 public sealed class BackupLogWriter
 {
-    private static readonly TimeSpan BeijingOffset = TimeSpan.FromHours(8);
-
     public async Task WriteAsync(
         string logPath,
         IReadOnlyList<BackupLogRow> rows,
@@ -67,7 +66,7 @@ public sealed class BackupLogWriter
 
         if (backupTime is not null)
         {
-            lines.Add($"- BackupTime: {FormatBeijingTime(backupTime)}");
+            lines.Add($"- BackupTime: {TimeDisplayFormatter.FormatBeijingTime(backupTime)}");
         }
 
         for (var index = 0; index < rows.Count; index++)
@@ -95,7 +94,7 @@ public sealed class BackupLogWriter
                 "DraftFullPath" => row.DraftFullPath,
                 "LocalFullPath" => row.LocalFullPath,
                 "FileSize" => row.FileSize?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-                "LastModified" => FormatBeijingTime(row.LastModified),
+                "LastModified" => TimeDisplayFormatter.FormatBeijingTime(row.LastModified),
                 "Result" => row.Result,
                 "ErrorMessage" => row.ErrorMessage,
                 "Note" => row.Note,
@@ -117,15 +116,6 @@ public sealed class BackupLogWriter
         if (fields.HasFlag(LogFieldOptions.ErrorMessage)) selected.Add("ErrorMessage");
         if (fields.HasFlag(LogFieldOptions.Note)) selected.Add("Note");
         return selected;
-    }
-
-    private static string FormatBeijingTime(DateTimeOffset? value)
-    {
-        return value is null
-            ? string.Empty
-            : DateTime.SpecifyKind(value.Value.DateTime, DateTimeKind.Utc)
-                .Add(BeijingOffset)
-                .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
     }
 
     private static string Escape(string value)
