@@ -17,6 +17,7 @@ var tests = new Action[]
     SettingsViewModelTests.LoadsAllSavedProcessesAndSelectedProcessFields,
     SettingsViewModelTests.SelectingSavedProcessLoadsItsServerFields,
     SettingsViewModelTests.EmptyPasswordKeepsExistingSavedPassword,
+    MainViewModelTests.StartsWithEmptyPathList,
     RemoteTests.FtpPathBuildsRootUriFromTrimmedRoot,
     RemoteTests.FtpPathBuildsRootUriFromEmptyRoot,
     RemoteTests.FtpPathBuildsRootUriFromSlashOnlyRoot,

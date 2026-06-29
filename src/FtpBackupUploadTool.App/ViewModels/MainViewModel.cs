@@ -33,7 +33,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Processes = new ObservableCollection<string>();
         selectedProcess = string.Empty;
         RootSummary = "根目录：生产 / 起案 / 本地";
-        PathListText = "css/site.css\r\nimages/logo.png\r\nscripts/app.js";
+        PathListText = string.Empty;
 
         ProductionPane = new FilePaneViewModel("生产服务器", true, Array.Empty<FileEntry>());
         DraftPane = new FilePaneViewModel("起案服务器", false, Array.Empty<FileEntry>());
