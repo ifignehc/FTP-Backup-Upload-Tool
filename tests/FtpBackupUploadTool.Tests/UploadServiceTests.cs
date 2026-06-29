@@ -24,6 +24,24 @@ internal static class UploadServiceTests
         TestAssert.Equal("上传完成", result.Logs[0].Message, "successful upload message");
     }
 
+    public static void UploadLogsOverwriteWhenDraftFileAlreadyExists()
+    {
+        var localRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-local", Guid.NewGuid().ToString("N"));
+        var draftRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-draft", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(localRoot, "css"));
+        Directory.CreateDirectory(Path.Combine(draftRoot, "css"));
+        File.WriteAllText(Path.Combine(localRoot, "css", "site.css"), "local-body");
+        File.WriteAllText(Path.Combine(draftRoot, "css", "site.css"), "old-draft-body");
+
+        var service = new UploadService(new LocalMirrorRemoteClient(draftRoot), localRoot);
+        var result = service.RunAsync(new[] { RelativePath.Parse("css/site.css") }, CancellationToken.None).GetAwaiter().GetResult();
+
+        TestAssert.Equal("local-body", File.ReadAllText(Path.Combine(draftRoot, "css", "site.css")), "draft file should be overwritten");
+        TestAssert.Equal(1, result.Logs.Count, "one overwrite upload log entry");
+        TestAssert.Equal(OperationLogLevel.Normal, result.Logs[0].Level, "overwrite upload should log normal");
+        TestAssert.True(result.Logs[0].Message.Contains("覆盖", StringComparison.Ordinal), "overwrite upload message should say it overwrote the draft file");
+    }
+
     public static void UploadCopiesRootLevelLocalFileToDraftRoot()
     {
         var localRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-local", Guid.NewGuid().ToString("N"));

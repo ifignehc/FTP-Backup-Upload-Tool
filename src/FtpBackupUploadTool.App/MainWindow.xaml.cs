@@ -267,6 +267,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        var isOverwrite = await services.DraftClient.FileExistsAsync(destinationPath, CancellationToken.None);
         if (source == FilePaneKind.Local)
         {
             await using var localSource = File.OpenRead(ToLocalPath(process, sourcePath));
@@ -277,7 +278,8 @@ public partial class MainWindow : Window
             await CopyRemoteToDraftAsync(GetRemoteClient(services, source), services.DraftClient, sourcePath, destinationPath);
         }
 
-        viewModel.AddLog($"[Normal] Copy {FormatCopyPath(sourcePath, destinationPath)}: 已复制到起案服务器");
+        var message = isOverwrite ? "已覆盖拷贝到起案服务器" : "已复制到起案服务器";
+        viewModel.AddLog($"[Normal] Copy {FormatCopyPath(sourcePath, destinationPath)}: {message}");
     }
 
     private async Task CopyToLocalAsync(

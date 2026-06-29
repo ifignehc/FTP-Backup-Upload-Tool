@@ -39,12 +39,14 @@ public sealed class UploadService
                 continue;
             }
 
+            var isOverwrite = await _draft.FileExistsAsync(path, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             await using var source = File.OpenRead(localPath);
             cancellationToken.ThrowIfCancellationRequested();
             await _draft.UploadAsync(path, source, cancellationToken);
 
-            logs.Add(new OperationLogEntry(DateTimeOffset.Now, OperationLogLevel.Normal, "Upload", path, "上传完成"));
+            var message = isOverwrite ? "覆盖上传完成" : "上传完成";
+            logs.Add(new OperationLogEntry(DateTimeOffset.Now, OperationLogLevel.Normal, "Upload", path, message));
         }
 
         return new UploadRunResult(logs);
