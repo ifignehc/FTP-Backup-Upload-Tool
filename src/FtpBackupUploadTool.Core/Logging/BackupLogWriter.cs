@@ -24,11 +24,13 @@ public sealed class BackupLogWriter
         string logPath,
         IReadOnlyList<BackupLogRow> rows,
         LogFieldOptions fields,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? title = null,
+        DateTimeOffset? backupTime = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var lines = BuildDocument(rows, fields);
+        var lines = BuildDocument(rows, fields, title, backupTime);
 
         var directory = Path.GetDirectoryName(logPath) ?? ".";
         Directory.CreateDirectory(directory);
@@ -55,9 +57,18 @@ public sealed class BackupLogWriter
         }
     }
 
-    private static List<string> BuildDocument(IReadOnlyList<BackupLogRow> rows, LogFieldOptions fields)
+    private static List<string> BuildDocument(
+        IReadOnlyList<BackupLogRow> rows,
+        LogFieldOptions fields,
+        string? title,
+        DateTimeOffset? backupTime)
     {
-        var lines = new List<string> { "# Backup Log" };
+        var lines = new List<string> { $"# {Escape(string.IsNullOrWhiteSpace(title) ? "Backup Log" : title)}" };
+
+        if (backupTime is not null)
+        {
+            lines.Add($"- BackupTime: {FormatBeijingTime(backupTime)}");
+        }
 
         for (var index = 0; index < rows.Count; index++)
         {

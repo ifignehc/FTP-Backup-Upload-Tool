@@ -22,10 +22,37 @@ internal static class BackupServiceTests
         var result = service.RunAsync(paths, backupRoot, "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup", LogFieldOptions.All, CancellationToken.None).GetAwaiter().GetResult();
 
         TestAssert.True(File.Exists(Path.Combine(result.BackupFolder, "css", "site.css")), "existing production file should be backed up");
-        TestAssert.True(File.Exists(Path.Combine(result.BackupFolder, "backup-log.md")), "Markdown backup log should exist");
-        var logText = File.ReadAllText(Path.Combine(result.BackupFolder, "backup-log.md"));
+        var logPath = GetBackupLogPath(result.BackupFolder);
+        TestAssert.True(File.Exists(logPath), "Markdown backup log should exist");
+        var logText = File.ReadAllText(logPath);
         TestAssert.True(logText.Contains("新文件，生产服务器不存在，跳过备份", StringComparison.Ordinal), "missing production file should be logged as new file");
         TestAssert.True(result.Logs.Any(log => log.Message == "新文件，跳过备份"), "missing production file should be logged with readable Chinese UI text");
+    }
+
+    public static void BackupLogFileUsesBackupFolderNameAndRecordsTimestamp()
+    {
+        var productionRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-prod", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(productionRoot, "css"));
+        File.WriteAllText(Path.Combine(productionRoot, "css", "site.css"), "prod-body");
+
+        var backupRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-backup", Guid.NewGuid().ToString("N"));
+        var service = new BackupService(new LocalMirrorRemoteClient(productionRoot), new BackupLogWriter());
+
+        var result = service.RunAsync(
+            new[] { RelativePath.Parse("css/site.css") },
+            backupRoot,
+            "20260629_183015_Backup",
+            LogFieldOptions.RelativePath,
+            CancellationToken.None).GetAwaiter().GetResult();
+
+        var folderName = Path.GetFileName(result.BackupFolder);
+        var logPath = Path.Combine(result.BackupFolder, $"{folderName}.md");
+        TestAssert.True(File.Exists(logPath), "Markdown backup log file name should match backup folder name");
+        TestAssert.True(!File.Exists(Path.Combine(result.BackupFolder, "backup-log.md")), "fixed backup-log.md should not be created");
+
+        var markdown = File.ReadAllText(logPath, Encoding.UTF8);
+        TestAssert.True(markdown.Contains($"# {folderName}", StringComparison.Ordinal), "Markdown backup log title should include backup folder name");
+        TestAssert.True(markdown.Contains("- BackupTime: 2026-06-29 18:30:15", StringComparison.Ordinal), "Markdown backup log should record the backup date and time");
     }
 
     public static void BackupLogWriterHonorsSelectedFields()
@@ -101,7 +128,7 @@ internal static class BackupServiceTests
             "/prod/root",
             "/draft/root").GetAwaiter().GetResult();
 
-        var logText = File.ReadAllText(Path.Combine(result.BackupFolder, "backup-log.md"));
+        var logText = File.ReadAllText(GetBackupLogPath(result.BackupFolder));
         TestAssert.True(logText.Contains("/prod/root/css/site.css", StringComparison.Ordinal), "backup log should include production full path");
         TestAssert.True(logText.Contains("/draft/root/css/site.css", StringComparison.Ordinal), "backup log should include draft full path");
         TestAssert.True(logText.Contains(Path.Combine(result.BackupFolder, "css", "site.css"), StringComparison.Ordinal), "backup log should include local backup path");
@@ -264,5 +291,10 @@ internal static class BackupServiceTests
             var partialFiles = Directory.EnumerateFiles(backupRoot, "site.css", SearchOption.AllDirectories).ToArray();
             TestAssert.Equal(0, partialFiles.Length, "canceled backup must not create partial destination file");
         }
+    }
+
+    private static string GetBackupLogPath(string backupFolder)
+    {
+        return Path.Combine(backupFolder, $"{Path.GetFileName(backupFolder)}.md");
     }
 }

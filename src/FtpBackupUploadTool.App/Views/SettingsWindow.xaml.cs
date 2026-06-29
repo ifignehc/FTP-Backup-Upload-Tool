@@ -32,6 +32,7 @@ public partial class SettingsWindow : Window
 
         InitializeComponent();
         DataContext = viewModel;
+        viewModel.ProcessLoaded += OnProcessLoaded;
         Loaded += OnLoaded;
 
         if (currentProcess is not null)
@@ -55,6 +56,38 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void OnProcessLoaded(object? sender, EventArgs e)
+    {
+        PopulatePasswordBoxesFromSavedPasswords();
+    }
+
+    private void OnRememberPasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (sender == RememberProductionPasswordCheckBox)
+        {
+            if (RememberProductionPasswordCheckBox.IsChecked == true)
+            {
+                SetProductionPasswordBoxFromSavedPassword();
+            }
+            else
+            {
+                ProductionPasswordBox.Password = string.Empty;
+            }
+        }
+
+        if (sender == RememberDraftPasswordCheckBox)
+        {
+            if (RememberDraftPasswordCheckBox.IsChecked == true)
+            {
+                SetDraftPasswordBoxFromSavedPassword();
+            }
+            else
+            {
+                DraftPasswordBox.Password = string.Empty;
+            }
+        }
+    }
+
     private async void OnSaveClick(object sender, RoutedEventArgs e)
     {
         try
@@ -62,6 +95,8 @@ public partial class SettingsWindow : Window
             var existingConfig = await configStore.LoadAsync(CancellationToken.None);
             var existingProcess = existingConfig.Processes.FirstOrDefault(process =>
                 string.Equals(process.Name, viewModel.SelectedProcess, StringComparison.OrdinalIgnoreCase));
+            viewModel.RememberProductionPassword = RememberProductionPasswordCheckBox.IsChecked == true;
+            viewModel.RememberDraftPassword = RememberDraftPasswordCheckBox.IsChecked == true;
             var process = viewModel.BuildProcessConfig(
                 passwordProtector,
                 ProductionPasswordBox.Password,
@@ -89,6 +124,38 @@ public partial class SettingsWindow : Window
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "保存设置失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void PopulatePasswordBoxesFromSavedPasswords()
+    {
+        SetProductionPasswordBoxFromSavedPassword();
+        SetDraftPasswordBoxFromSavedPassword();
+    }
+
+    private void SetProductionPasswordBoxFromSavedPassword()
+    {
+        try
+        {
+            ProductionPasswordBox.Password = viewModel.GetProductionPasswordForDisplay(passwordProtector);
+        }
+        catch (Exception ex)
+        {
+            ProductionPasswordBox.Password = string.Empty;
+            MessageBox.Show($"生产服务器已保存的密码无法解密，请重新输入。\n{ex.Message}", "读取密码失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void SetDraftPasswordBoxFromSavedPassword()
+    {
+        try
+        {
+            DraftPasswordBox.Password = viewModel.GetDraftPasswordForDisplay(passwordProtector);
+        }
+        catch (Exception ex)
+        {
+            DraftPasswordBox.Password = string.Empty;
+            MessageBox.Show($"起案服务器已保存的密码无法解密，请重新输入。\n{ex.Message}", "读取密码失败", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 }

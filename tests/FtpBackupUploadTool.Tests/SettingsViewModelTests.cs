@@ -45,6 +45,44 @@ internal static class SettingsViewModelTests
         TestAssert.Equal("enc-draft-a", saved.DraftServer.EncryptedPassword, "empty draft password should keep saved password");
     }
 
+    public static void SavedPasswordsEnableRememberPasswordAndCanBeDisplayed()
+    {
+        var existing = CreateProcess(
+            "常规更新",
+            "prod-a",
+            "draft-a",
+            "protected:prod-secret",
+            "protected:draft-secret");
+        var viewModel = new SettingsViewModel();
+
+        viewModel.LoadProcesses(new[] { existing }, "常规更新");
+
+        TestAssert.True(viewModel.RememberProductionPassword, "saved production password should enable remember password");
+        TestAssert.True(viewModel.RememberDraftPassword, "saved draft password should enable remember password");
+        TestAssert.Equal(
+            "prod-secret",
+            viewModel.GetProductionPasswordForDisplay(new TestPasswordProtector()),
+            "remembered production password should be available for display");
+        TestAssert.Equal(
+            "draft-secret",
+            viewModel.GetDraftPasswordForDisplay(new TestPasswordProtector()),
+            "remembered draft password should be available for display");
+    }
+
+    public static void TurningOffRememberPasswordClearsSavedPasswords()
+    {
+        var existing = CreateProcess("常规更新", "prod-a", "draft-a", "enc-prod-a", "enc-draft-a");
+        var viewModel = new SettingsViewModel();
+        viewModel.LoadProcesses(new[] { existing }, "常规更新");
+        viewModel.RememberProductionPassword = false;
+        viewModel.RememberDraftPassword = false;
+
+        var saved = viewModel.BuildProcessConfig(new TestPasswordProtector(), string.Empty, string.Empty, existing);
+
+        TestAssert.Equal(string.Empty, saved.ProductionServer.EncryptedPassword, "production password should be cleared when remember password is off");
+        TestAssert.Equal(string.Empty, saved.DraftServer.EncryptedPassword, "draft password should be cleared when remember password is off");
+    }
+
     private static ProcessConfig CreateProcess(
         string name,
         string productionHost,

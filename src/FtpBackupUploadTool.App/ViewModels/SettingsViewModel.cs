@@ -15,10 +15,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private string productionPort = "21";
     private string productionAccount = "prod_user";
     private string productionPasswordHint = "未保存密码，请输入";
+    private bool rememberProductionPassword;
     private string draftHost = "192.168.1.20";
     private string draftPort = "21";
     private string draftAccount = "draft_user";
     private string draftPasswordHint = "未保存密码，请输入";
+    private bool rememberDraftPassword;
     private string serverRoot = "/www/project";
     private string localRoot = @"D:\Release\project";
     private string backupDirectory = @"%USERPROFILE%\Desktop";
@@ -43,6 +45,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public event EventHandler? ProcessLoaded;
 
     public ObservableCollection<string> Processes { get; } = new();
 
@@ -93,6 +97,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         set => SetProperty(ref productionPasswordHint, value, nameof(ProductionPasswordHint));
     }
 
+    public bool RememberProductionPassword
+    {
+        get => rememberProductionPassword;
+        set => SetProperty(ref rememberProductionPassword, value, nameof(RememberProductionPassword));
+    }
+
     public string DraftHost
     {
         get => draftHost;
@@ -115,6 +125,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         get => draftPasswordHint;
         set => SetProperty(ref draftPasswordHint, value, nameof(DraftPasswordHint));
+    }
+
+    public bool RememberDraftPassword
+    {
+        get => rememberDraftPassword;
+        set => SetProperty(ref rememberDraftPassword, value, nameof(RememberDraftPassword));
     }
 
     public string ServerRoot
@@ -199,10 +215,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         ProductionPort = config.ProductionServer.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
         ProductionAccount = config.ProductionServer.UserName;
         ProductionPasswordHint = GetPasswordHint(config.ProductionServer.EncryptedPassword);
+        RememberProductionPassword = HasSavedPassword(config.ProductionServer.EncryptedPassword);
         DraftHost = config.DraftServer.Host;
         DraftPort = config.DraftServer.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
         DraftAccount = config.DraftServer.UserName;
         DraftPasswordHint = GetPasswordHint(config.DraftServer.EncryptedPassword);
+        RememberDraftPassword = HasSavedPassword(config.DraftServer.EncryptedPassword);
         ServerRoot = config.ProductionServer.RootPath;
         LocalRoot = config.LocalRootPath;
         BackupDirectory = config.Backup.BackupDirectory;
@@ -212,6 +230,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         {
             field.IsChecked = config.Backup.LogFields.HasFlag(field.Option);
         }
+
+        ProcessLoaded?.Invoke(this, EventArgs.Empty);
     }
 
     public ProcessConfig BuildProcessConfig(
@@ -229,11 +249,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             passwordProtector,
             productionPassword,
             existingProcess?.ProductionServer.EncryptedPassword,
+            RememberProductionPassword,
             "生产服务器密码");
         var draftEncryptedPassword = ResolveEncryptedPassword(
             passwordProtector,
             draftPassword,
             existingProcess?.DraftServer.EncryptedPassword,
+            RememberDraftPassword,
             "起案服务器密码");
 
         return new ProcessConfig(
@@ -258,7 +280,35 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 SelectedLogFields()));
     }
 
+    public string GetProductionPasswordForDisplay(IPasswordProtector passwordProtector)
+    {
+        ArgumentNullException.ThrowIfNull(passwordProtector);
+
+        var encryptedPassword = GetSelectedProcess()?.ProductionServer.EncryptedPassword;
+        return GetPasswordForDisplay(passwordProtector, encryptedPassword, RememberProductionPassword);
+    }
+
+    public string GetDraftPasswordForDisplay(IPasswordProtector passwordProtector)
+    {
+        ArgumentNullException.ThrowIfNull(passwordProtector);
+
+        var encryptedPassword = GetSelectedProcess()?.DraftServer.EncryptedPassword;
+        return GetPasswordForDisplay(passwordProtector, encryptedPassword, RememberDraftPassword);
+    }
+
     private bool SetProperty(ref string field, string value, string propertyName)
+    {
+        if (field == value)
+        {
+            return false;
+        }
+
+        field = value;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        return true;
+    }
+
+    private bool SetProperty(ref bool field, bool value, string propertyName)
     {
         if (field == value)
         {
@@ -305,8 +355,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         IPasswordProtector passwordProtector,
         string plainPassword,
         string? existingEncryptedPassword,
+        bool rememberPassword,
         string label)
     {
+        if (!rememberPassword)
+        {
+            return string.Empty;
+        }
+
         if (!string.IsNullOrEmpty(plainPassword))
         {
             return passwordProtector.Protect(plainPassword);
@@ -324,7 +380,30 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         return string.IsNullOrWhiteSpace(encryptedPassword)
             ? "未保存密码，请输入"
-            : "已保存，留空则继续使用；输入新密码则替换";
+            : "已保存并会自动填入；输入新密码则替换";
+    }
+
+    private ProcessConfig? GetSelectedProcess()
+    {
+        return savedProcesses.TryGetValue(SelectedProcess, out var config) ? config : null;
+    }
+
+    private static string GetPasswordForDisplay(
+        IPasswordProtector passwordProtector,
+        string? encryptedPassword,
+        bool rememberPassword)
+    {
+        if (!rememberPassword || string.IsNullOrWhiteSpace(encryptedPassword))
+        {
+            return string.Empty;
+        }
+
+        return passwordProtector.Unprotect(encryptedPassword);
+    }
+
+    private static bool HasSavedPassword(string encryptedPassword)
+    {
+        return !string.IsNullOrWhiteSpace(encryptedPassword);
     }
 }
 

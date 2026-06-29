@@ -1,3 +1,4 @@
+using System.Globalization;
 using FtpBackupUploadTool.Core.Logging;
 using FtpBackupUploadTool.Core.Models;
 using FtpBackupUploadTool.Core.Paths;
@@ -29,7 +30,8 @@ public sealed class BackupService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var renderedFolderName = RenderFolderName(folderTemplate, DateTimeOffset.Now);
+        var now = DateTimeOffset.Now;
+        var renderedFolderName = RenderFolderName(folderTemplate, now);
         ValidateBackupFolderName(renderedFolderName);
         var folder = Path.Combine(
             Environment.ExpandEnvironmentVariables(backupRoot),
@@ -90,7 +92,13 @@ public sealed class BackupService
                 string.Empty));
         }
 
-        await _logWriter.WriteAsync(Path.Combine(folder, "backup-log.md"), rows, logFields, cancellationToken);
+        await _logWriter.WriteAsync(
+            Path.Combine(folder, $"{renderedFolderName}.md"),
+            rows,
+            logFields,
+            cancellationToken,
+            renderedFolderName,
+            ResolveBackupTime(renderedFolderName, now));
         return new BackupRunResult(folder, logs);
     }
 
@@ -145,6 +153,22 @@ public sealed class BackupService
         }
 
         return $"{root.TrimEnd('/', '\\')}/{path.Value}";
+    }
+
+    private static DateTimeOffset ResolveBackupTime(string renderedFolderName, DateTimeOffset fallback)
+    {
+        if (renderedFolderName.Length >= 15
+            && DateTime.TryParseExact(
+                renderedFolderName[..15],
+                "yyyyMMdd_HHmmss",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var parsed))
+        {
+            return new DateTimeOffset(parsed.AddHours(-8), TimeSpan.Zero);
+        }
+
+        return new DateTimeOffset(fallback.UtcDateTime, TimeSpan.Zero);
     }
 
     private static void TryDeletePartialFile(string path)
