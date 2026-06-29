@@ -57,15 +57,27 @@
             </GroupBox>
 
             <GroupBox Grid.Column="2" Header="{Binding ProductionPane.Title}">
-                <controls:FilePaneControl DataContext="{Binding ProductionPane}" />
+                <controls:FilePaneControl x:Name="ProductionFilePane"
+                                          DataContext="{Binding ProductionPane}"
+                                          CopyRequested="OnFilePaneCopyRequested" />
             </GroupBox>
 
             <GroupBox Grid.Column="4" Header="{Binding DraftPane.Title}">
-                <controls:FilePaneControl DataContext="{Binding DraftPane}" />
+                <controls:FilePaneControl x:Name="DraftFilePane"
+                                          DataContext="{Binding DraftPane}"
+                                          CopyRequested="OnFilePaneCopyRequested"
+                                          PasteRequested="OnFilePanePasteRequested"
+                                          DeleteRequested="OnFilePaneDeleteRequested"
+                                          FilesDropped="OnFilePaneFilesDropped" />
             </GroupBox>
 
             <GroupBox Grid.Column="6" Header="{Binding LocalPane.Title}">
-                <controls:FilePaneControl DataContext="{Binding LocalPane}" />
+                <controls:FilePaneControl x:Name="LocalFilePane"
+                                          DataContext="{Binding LocalPane}"
+                                          CopyRequested="OnFilePaneCopyRequested"
+                                          PasteRequested="OnFilePanePasteRequested"
+                                          DeleteRequested="OnFilePaneDeleteRequested"
+                                          FilesDropped="OnFilePaneFilesDropped" />
             </GroupBox>
         </Grid>
 

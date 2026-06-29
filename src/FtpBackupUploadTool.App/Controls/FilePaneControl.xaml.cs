@@ -21,7 +21,7 @@ public partial class FilePaneControl : UserControl
 
     public event EventHandler<IReadOnlyList<FileEntry>>? DeleteRequested;
 
-    public event EventHandler<IReadOnlyList<FileEntry>>? FilesDropped;
+    public event EventHandler<FilePaneDropEventArgs>? FilesDropped;
 
     private bool IsPaneReadOnly => DataContext is FilePaneViewModel viewModel && viewModel.IsReadOnly;
 
@@ -110,13 +110,13 @@ public partial class FilePaneControl : UserControl
             return;
         }
 
-        DragDrop.DoDragDrop(fileListView, files.ToArray(), DragDropEffects.Copy);
+        DragDrop.DoDragDrop(fileListView, new FilePaneDragPayload(this, files), DragDropEffects.Copy);
         dragStartPoint = null;
     }
 
     private void OnDrop(object sender, DragEventArgs e)
     {
-        if (!TryGetDroppedFiles(e, out var files) || files.Count == 0)
+        if (!TryGetDroppedFiles(e, out var sourcePane, out var files) || files.Count == 0)
         {
             return;
         }
@@ -129,14 +129,26 @@ public partial class FilePaneControl : UserControl
         }
 
         e.Effects = DragDropEffects.Copy;
-        FilesDropped?.Invoke(this, files);
+        FilesDropped?.Invoke(this, new FilePaneDropEventArgs(sourcePane, files));
     }
 
-    private static bool TryGetDroppedFiles(DragEventArgs e, out IReadOnlyList<FileEntry> files)
+    private static bool TryGetDroppedFiles(
+        DragEventArgs e,
+        out FilePaneControl? sourcePane,
+        out IReadOnlyList<FileEntry> files)
     {
+        if (e.Data.GetDataPresent(typeof(FilePaneDragPayload)) &&
+            e.Data.GetData(typeof(FilePaneDragPayload)) is FilePaneDragPayload payload)
+        {
+            sourcePane = payload.SourcePane;
+            files = payload.Files;
+            return true;
+        }
+
         if (e.Data.GetDataPresent(typeof(FileEntry[])) &&
             e.Data.GetData(typeof(FileEntry[])) is FileEntry[] fileArray)
         {
+            sourcePane = null;
             files = fileArray;
             return true;
         }
@@ -144,10 +156,12 @@ public partial class FilePaneControl : UserControl
         if (e.Data.GetDataPresent(typeof(IReadOnlyList<FileEntry>)) &&
             e.Data.GetData(typeof(IReadOnlyList<FileEntry>)) is IReadOnlyList<FileEntry> fileList)
         {
+            sourcePane = null;
             files = fileList;
             return true;
         }
 
+        sourcePane = null;
         files = Array.Empty<FileEntry>();
         return false;
     }
@@ -157,3 +171,7 @@ public partial class FilePaneControl : UserControl
         MessageBox.Show("生产服务器面板为只读，不能粘贴、删除或拖放文件。", "只读面板", MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 }
+
+public sealed record FilePaneDropEventArgs(FilePaneControl? SourcePane, IReadOnlyList<FileEntry> Files);
+
+internal sealed record FilePaneDragPayload(FilePaneControl SourcePane, IReadOnlyList<FileEntry> Files);

@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Windows.Input;
 using FtpBackupUploadTool.App.Commands;
 using FtpBackupUploadTool.App.Runtime;
 using FtpBackupUploadTool.Core.Models;
 using FtpBackupUploadTool.Core.Paths;
+using FtpBackupUploadTool.Core.Remote;
 using FtpBackupUploadTool.Core.Services;
 
 namespace FtpBackupUploadTool.App.ViewModels;
@@ -15,6 +17,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private UploadService uploadService;
     private CheckService checkService;
     private ProcessConfig? currentProcess;
+    private WorkflowServices? currentServices;
     private string pathListText = string.Empty;
     private string rootSummary = string.Empty;
     private string selectedProcess;
@@ -36,9 +39,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
         RootSummary = "根目录：生产 / 起案 / 本地";
         PathListText = "css/site.css\r\nimages/logo.png\r\nscripts/app.js";
 
-        ProductionPane = new FilePaneViewModel("生产服务器", true, CreateSampleFiles());
-        DraftPane = new FilePaneViewModel("起案服务器", false, CreateSampleFiles());
-        LocalPane = new FilePaneViewModel("本地文件", false, CreateSampleFiles());
+        ProductionPane = new FilePaneViewModel("生产服务器", true, Array.Empty<FileEntry>());
+        DraftPane = new FilePaneViewModel("起案服务器", false, Array.Empty<FileEntry>());
+        LocalPane = new FilePaneViewModel("本地文件", false, Array.Empty<FileEntry>());
         Logs = new ObservableCollection<string>
         {
             FormatLog("工具界面已就绪")
@@ -128,6 +131,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public ProcessConfig? CurrentProcess => currentProcess;
 
+    public WorkflowServices? CurrentServices => currentServices;
+
     public ICommand BackupCommand { get; }
 
     public ICommand UploadCommand { get; }
@@ -147,6 +152,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ArgumentNullException.ThrowIfNull(services);
 
         currentProcess = config;
+        currentServices = services;
         backupService = services.BackupService;
         uploadService = services.UploadService;
         checkService = services.CheckService;
@@ -158,6 +164,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         SelectedProcess = config.Name;
         RootSummary = $"根目录一致：{config.ProductionServer.RootPath} | 本地：{config.LocalRootPath}";
+    }
+
+    public async Task RefreshFilePanesAsync(CancellationToken cancellationToken)
+    {
+        if (currentProcess is null || currentServices is null)
+        {
+            ProductionPane.ReplaceFiles(Array.Empty<FileEntry>());
+            DraftPane.ReplaceFiles(Array.Empty<FileEntry>());
+            LocalPane.ReplaceFiles(Array.Empty<FileEntry>());
+            return;
+        }
+
+        await RefreshRemotePaneAsync("生产服务器", ProductionPane, currentServices.ProductionClient, cancellationToken);
+        await RefreshRemotePaneAsync("起案服务器", DraftPane, currentServices.DraftClient, cancellationToken);
+        RefreshLocalPane();
     }
 
     private IReadOnlyList<RelativePath> ParsePaths() => PathListParser.Parse(PathListText);
@@ -199,20 +220,36 @@ public sealed class MainViewModel : INotifyPropertyChanged
             currentProcess.Backup.BackupDirectory,
             currentProcess.Backup.FolderNameTemplate,
             currentProcess.Backup.LogFields,
-            CancellationToken.None);
+            CancellationToken.None,
+            currentProcess.ProductionServer.RootPath,
+            currentProcess.DraftServer.RootPath);
 
         AppendLogs(result.Logs);
+        await RefreshFilePanesAsync(CancellationToken.None);
     }
 
     private async Task RunUploadCoreAsync()
     {
+        if (currentProcess is null)
+        {
+            AddLog("[Error] Upload: 未加载已保存工序，请先完成配置");
+            return;
+        }
+
         var paths = ParsePaths();
         var result = await uploadService.RunAsync(paths, CancellationToken.None);
         AppendLogs(result.Logs);
+        await RefreshFilePanesAsync(CancellationToken.None);
     }
 
     private async Task RunCheckCoreAsync()
     {
+        if (currentProcess is null)
+        {
+            AddLog("[Error] Check: 未加载已保存工序，请先完成配置");
+            return;
+        }
+
         var paths = ParsePaths();
         var result = await checkService.RunAsync(paths, CancellationToken.None);
         AppendLogs(result.Logs);
@@ -242,12 +279,57 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private static string FormatLog(string message) => $"{DateTime.Now:HH:mm:ss}  {message}";
 
-    private static FileEntry[] CreateSampleFiles() =>
-    [
-        new FileEntry(RelativePath.Parse("css/site.css"), false, 12840, new DateTimeOffset(2026, 6, 28, 9, 30, 0, TimeSpan.Zero)),
-        new FileEntry(RelativePath.Parse("images/logo.png"), false, 48216, new DateTimeOffset(2026, 6, 28, 9, 42, 0, TimeSpan.Zero)),
-        new FileEntry(RelativePath.Parse("scripts/app.js"), false, 9344, new DateTimeOffset(2026, 6, 28, 10, 15, 0, TimeSpan.Zero))
-    ];
+    private async Task RefreshRemotePaneAsync(
+        string label,
+        FilePaneViewModel pane,
+        IRemoteFileClient client,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            pane.ReplaceFiles(await client.ListRecursiveAsync(cancellationToken));
+        }
+        catch (Exception ex)
+        {
+            pane.ReplaceFiles(Array.Empty<FileEntry>());
+            AddLog($"[Warning] {label}文件列表刷新失败：{ex.Message}");
+        }
+    }
+
+    private void RefreshLocalPane()
+    {
+        if (currentProcess is null)
+        {
+            LocalPane.ReplaceFiles(Array.Empty<FileEntry>());
+            return;
+        }
+
+        try
+        {
+            var root = Path.GetFullPath(Environment.ExpandEnvironmentVariables(currentProcess.LocalRootPath));
+            if (!Directory.Exists(root))
+            {
+                LocalPane.ReplaceFiles(Array.Empty<FileEntry>());
+                AddLog($"[Warning] 本地根目录不存在：{root}");
+                return;
+            }
+
+            var files = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+                .Select(file =>
+                {
+                    var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+                    var info = new FileInfo(file);
+                    return new FileEntry(RelativePath.Parse(relative), false, info.Length, info.LastWriteTimeUtc);
+                })
+                .ToArray();
+            LocalPane.ReplaceFiles(files);
+        }
+        catch (Exception ex)
+        {
+            LocalPane.ReplaceFiles(Array.Empty<FileEntry>());
+            AddLog($"[Warning] 本地文件列表刷新失败：{ex.Message}");
+        }
+    }
 
     private void OnPropertyChanged(string propertyName)
     {

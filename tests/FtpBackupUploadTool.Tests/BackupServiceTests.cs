@@ -55,6 +55,30 @@ internal static class BackupServiceTests
         TestAssert.True(!lines[0].Contains("Note", StringComparison.Ordinal), "CSV header should omit unselected note field");
     }
 
+    public static void BackupServiceWritesSelectedFullPathFields()
+    {
+        var productionRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-prod", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(productionRoot, "css"));
+        File.WriteAllText(Path.Combine(productionRoot, "css", "site.css"), "prod-body");
+
+        var backupRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-backup", Guid.NewGuid().ToString("N"));
+        var service = new BackupService(new LocalMirrorRemoteClient(productionRoot), new BackupLogWriter());
+
+        var result = service.RunAsync(
+            new[] { RelativePath.Parse("css/site.css") },
+            backupRoot,
+            "Backup",
+            LogFieldOptions.ProductionFullPath | LogFieldOptions.DraftFullPath | LogFieldOptions.LocalFullPath,
+            CancellationToken.None,
+            "/prod/root",
+            "/draft/root").GetAwaiter().GetResult();
+
+        var logText = File.ReadAllText(Path.Combine(result.BackupFolder, "backup-log.csv"));
+        TestAssert.True(logText.Contains("/prod/root/css/site.css", StringComparison.Ordinal), "backup log should include production full path");
+        TestAssert.True(logText.Contains("/draft/root/css/site.css", StringComparison.Ordinal), "backup log should include draft full path");
+        TestAssert.True(logText.Contains(Path.Combine(result.BackupFolder, "css", "site.css"), StringComparison.Ordinal), "backup log should include local backup path");
+    }
+
     public static void InvalidFolderTemplateThrowsBeforeCreatingOutsideBackupRoot()
     {
         var productionRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-prod", Guid.NewGuid().ToString("N"));

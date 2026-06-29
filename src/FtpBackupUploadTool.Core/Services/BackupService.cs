@@ -23,7 +23,9 @@ public sealed class BackupService
         string backupRoot,
         string folderTemplate,
         LogFieldOptions logFields,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string productionRoot = "",
+        string draftRoot = "")
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -46,7 +48,16 @@ public sealed class BackupService
             {
                 const string note = "新文件，生产服务器不存在，跳过备份";
                 logs.Add(new OperationLogEntry(DateTimeOffset.Now, OperationLogLevel.Normal, "Backup", path, "新文件，跳过备份"));
-                rows.Add(new BackupLogRow(path, path.Value, string.Empty, string.Empty, null, null, "Skipped", string.Empty, note));
+                rows.Add(new BackupLogRow(
+                    path,
+                    BuildRemoteFullPath(productionRoot, path),
+                    BuildRemoteFullPath(draftRoot, path),
+                    string.Empty,
+                    null,
+                    null,
+                    "Skipped",
+                    string.Empty,
+                    note));
                 continue;
             }
 
@@ -67,7 +78,16 @@ public sealed class BackupService
             }
 
             logs.Add(new OperationLogEntry(DateTimeOffset.Now, OperationLogLevel.Normal, "Backup", path, "备份完成"));
-            rows.Add(new BackupLogRow(path, path.Value, string.Empty, destinationPath, entry.Size, entry.LastModified, "BackedUp", string.Empty, string.Empty));
+            rows.Add(new BackupLogRow(
+                path,
+                BuildRemoteFullPath(productionRoot, path),
+                BuildRemoteFullPath(draftRoot, path),
+                destinationPath,
+                entry.Size,
+                entry.LastModified,
+                "BackedUp",
+                string.Empty,
+                string.Empty));
         }
 
         await _logWriter.WriteAsync(Path.Combine(folder, "backup-log.csv"), rows, logFields, cancellationToken);
@@ -115,6 +135,16 @@ public sealed class BackupService
         }
 
         return destination;
+    }
+
+    private static string BuildRemoteFullPath(string root, RelativePath path)
+    {
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            return path.Value;
+        }
+
+        return $"{root.TrimEnd('/', '\\')}/{path.Value}";
     }
 
     private static void TryDeletePartialFile(string path)
