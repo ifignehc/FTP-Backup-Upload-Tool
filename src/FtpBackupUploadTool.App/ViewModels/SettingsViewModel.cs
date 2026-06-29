@@ -7,14 +7,18 @@ namespace FtpBackupUploadTool.App.ViewModels;
 
 public sealed class SettingsViewModel : INotifyPropertyChanged
 {
+    private readonly Dictionary<string, ProcessConfig> savedProcesses = new(StringComparer.OrdinalIgnoreCase);
+    private bool isLoadingProcess;
     private string selectedProcess;
     private string processName = "默认工序";
     private string productionHost = "192.168.1.10";
     private string productionPort = "21";
     private string productionAccount = "prod_user";
+    private string productionPasswordHint = "未保存密码，请输入";
     private string draftHost = "192.168.1.20";
     private string draftPort = "21";
     private string draftAccount = "draft_user";
+    private string draftPasswordHint = "未保存密码，请输入";
     private string serverRoot = "/www/project";
     private string localRoot = @"D:\Release\project";
     private string backupDirectory = @"%USERPROFILE%\Desktop";
@@ -45,7 +49,18 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public string SelectedProcess
     {
         get => selectedProcess;
-        set => SetProperty(ref selectedProcess, value, nameof(SelectedProcess));
+        set
+        {
+            if (!SetProperty(ref selectedProcess, value, nameof(SelectedProcess)))
+            {
+                return;
+            }
+
+            if (!isLoadingProcess && savedProcesses.TryGetValue(selectedProcess, out var config))
+            {
+                LoadProcess(config);
+            }
+        }
     }
 
     public string ProcessName
@@ -72,6 +87,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         set => SetProperty(ref productionAccount, value, nameof(ProductionAccount));
     }
 
+    public string ProductionPasswordHint
+    {
+        get => productionPasswordHint;
+        set => SetProperty(ref productionPasswordHint, value, nameof(ProductionPasswordHint));
+    }
+
     public string DraftHost
     {
         get => draftHost;
@@ -88,6 +109,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         get => draftAccount;
         set => SetProperty(ref draftAccount, value, nameof(DraftAccount));
+    }
+
+    public string DraftPasswordHint
+    {
+        get => draftPasswordHint;
+        set => SetProperty(ref draftPasswordHint, value, nameof(DraftPasswordHint));
     }
 
     public string ServerRoot
@@ -116,23 +143,66 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public ObservableCollection<LogFieldItem> LogFields { get; }
 
+    public void LoadProcesses(IEnumerable<ProcessConfig> configs, string? selectedName)
+    {
+        ArgumentNullException.ThrowIfNull(configs);
+
+        savedProcesses.Clear();
+        Processes.Clear();
+
+        foreach (var config in configs.Where(config => !string.IsNullOrWhiteSpace(config.Name)))
+        {
+            savedProcesses[config.Name] = config;
+            if (!Processes.Contains(config.Name))
+            {
+                Processes.Add(config.Name);
+            }
+        }
+
+        var selected = !string.IsNullOrWhiteSpace(selectedName)
+            && savedProcesses.TryGetValue(selectedName, out var selectedConfig)
+                ? selectedConfig
+                : savedProcesses.Values.FirstOrDefault();
+
+        if (selected is not null)
+        {
+            LoadProcess(selected);
+            return;
+        }
+
+        Processes.Add("默认工序");
+        SelectedProcess = "默认工序";
+    }
+
     public void LoadProcess(ProcessConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
 
+        savedProcesses[config.Name] = config;
         if (!Processes.Contains(config.Name))
         {
             Processes.Add(config.Name);
         }
 
-        SelectedProcess = config.Name;
+        isLoadingProcess = true;
+        try
+        {
+            SelectedProcess = config.Name;
+        }
+        finally
+        {
+            isLoadingProcess = false;
+        }
+
         ProcessName = config.Name;
         ProductionHost = config.ProductionServer.Host;
         ProductionPort = config.ProductionServer.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
         ProductionAccount = config.ProductionServer.UserName;
+        ProductionPasswordHint = GetPasswordHint(config.ProductionServer.EncryptedPassword);
         DraftHost = config.DraftServer.Host;
         DraftPort = config.DraftServer.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
         DraftAccount = config.DraftServer.UserName;
+        DraftPasswordHint = GetPasswordHint(config.DraftServer.EncryptedPassword);
         ServerRoot = config.ProductionServer.RootPath;
         LocalRoot = config.LocalRootPath;
         BackupDirectory = config.Backup.BackupDirectory;
@@ -188,15 +258,16 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 SelectedLogFields()));
     }
 
-    private void SetProperty(ref string field, string value, string propertyName)
+    private bool SetProperty(ref string field, string value, string propertyName)
     {
         if (field == value)
         {
-            return;
+            return false;
         }
 
         field = value;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        return true;
     }
 
     private LogFieldOptions SelectedLogFields()
@@ -246,7 +317,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             return existingEncryptedPassword;
         }
 
-        throw new InvalidOperationException($"{label}不能为空。");
+        throw new InvalidOperationException($"{label}未保存，请输入密码。");
+    }
+
+    private static string GetPasswordHint(string encryptedPassword)
+    {
+        return string.IsNullOrWhiteSpace(encryptedPassword)
+            ? "未保存密码，请输入"
+            : "已保存，留空则继续使用；输入新密码则替换";
     }
 }
 

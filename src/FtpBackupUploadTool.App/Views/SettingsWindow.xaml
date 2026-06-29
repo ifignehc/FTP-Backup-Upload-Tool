@@ -81,7 +81,7 @@
                             <TextBlock Grid.Column="4" Text="账号" VerticalAlignment="Center" />
                             <TextBox Grid.Column="5" Text="{Binding ProductionAccount, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Margin="0,0,12,0" />
                             <TextBlock Grid.Column="6" Text="密码" VerticalAlignment="Center" />
-                            <PasswordBox x:Name="ProductionPasswordBox" Grid.Column="7" Padding="8,6" />
+                            <PasswordBox x:Name="ProductionPasswordBox" Grid.Column="7" Padding="8,6" ToolTip="{Binding ProductionPasswordHint}" />
                         </Grid>
                     </GroupBox>
 
@@ -104,7 +104,7 @@
                             <TextBlock Grid.Column="4" Text="账号" VerticalAlignment="Center" />
                             <TextBox Grid.Column="5" Text="{Binding DraftAccount, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" Margin="0,0,12,0" />
                             <TextBlock Grid.Column="6" Text="密码" VerticalAlignment="Center" />
-                            <PasswordBox x:Name="DraftPasswordBox" Grid.Column="7" Padding="8,6" />
+                            <PasswordBox x:Name="DraftPasswordBox" Grid.Column="7" Padding="8,6" ToolTip="{Binding DraftPasswordHint}" />
                         </Grid>
                     </GroupBox>
 

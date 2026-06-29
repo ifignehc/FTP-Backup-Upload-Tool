@@ -22,6 +22,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string rootSummary = string.Empty;
     private string selectedProcess;
     private bool isWorkflowRunning;
+    private bool isLoadingProcess;
 
     public MainViewModel(BackupService backupService, UploadService uploadService, CheckService checkService)
     {
@@ -29,13 +30,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         this.uploadService = uploadService ?? throw new ArgumentNullException(nameof(uploadService));
         this.checkService = checkService ?? throw new ArgumentNullException(nameof(checkService));
 
-        Processes = new ObservableCollection<string>
-        {
-            "默认工序",
-            "紧急发布",
-            "常规更新"
-        };
-        selectedProcess = Processes[0];
+        Processes = new ObservableCollection<string>();
+        selectedProcess = string.Empty;
         RootSummary = "根目录：生产 / 起案 / 本地";
         PathListText = "css/site.css\r\nimages/logo.png\r\nscripts/app.js";
 
@@ -57,6 +53,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public event EventHandler? SettingsRequested;
 
+    public event EventHandler<string>? ProcessSelectionRequested;
+
     public ObservableCollection<string> Processes { get; }
 
     public string SelectedProcess
@@ -71,7 +69,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             selectedProcess = value;
             OnPropertyChanged(nameof(SelectedProcess));
-            AddLog($"已切换工序：{selectedProcess}");
+            if (!string.IsNullOrWhiteSpace(selectedProcess))
+            {
+                AddLog($"已切换工序：{selectedProcess}");
+            }
+
+            if (!isLoadingProcess)
+            {
+                ProcessSelectionRequested?.Invoke(this, selectedProcess);
+            }
         }
     }
 
@@ -146,6 +152,22 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Logs.Add(FormatLog(message));
     }
 
+    public void ReplaceProcesses(IEnumerable<ProcessConfig> configs)
+    {
+        var names = configs
+            .Select(config => config.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Processes.Clear();
+        foreach (var name in names)
+        {
+            Processes.Add(name);
+        }
+    }
+
     public void LoadProcess(ProcessConfig config, WorkflowServices services)
     {
         ArgumentNullException.ThrowIfNull(config);
@@ -162,8 +184,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Processes.Add(config.Name);
         }
 
-        SelectedProcess = config.Name;
-        RootSummary = $"根目录一致：{config.ProductionServer.RootPath} | 本地：{config.LocalRootPath}";
+        isLoadingProcess = true;
+        try
+        {
+            SelectedProcess = config.Name;
+        }
+        finally
+        {
+            isLoadingProcess = false;
+        }
+
+        ProductionPane.CurrentPath = "/";
+        DraftPane.CurrentPath = "/";
+        LocalPane.CurrentPath = "/";
+        RootSummary = $"服务器根目录：{config.ProductionServer.RootPath} | 本地：{config.LocalRootPath}";
     }
 
     public async Task RefreshFilePanesAsync(CancellationToken cancellationToken)
@@ -287,7 +321,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         try
         {
-            pane.ReplaceFiles(await client.ListRecursiveAsync(cancellationToken));
+            pane.ReplaceFiles(await client.ListDirectoryAsync(ToRelativePath(pane.CurrentPath), cancellationToken));
         }
         catch (Exception ex)
         {
@@ -314,15 +348,28 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 return;
             }
 
-            var files = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+            var currentDirectory = ToLocalDirectoryPath(root, LocalPane.CurrentPath);
+            if (!Directory.Exists(currentDirectory))
+            {
+                LocalPane.ReplaceFiles(Array.Empty<FileEntry>());
+                AddLog($"[Warning] 本地路径不存在：{currentDirectory}");
+                return;
+            }
+
+            var directories = Directory.EnumerateDirectories(currentDirectory)
+                .Select(directory =>
+                {
+                    var relative = Path.GetRelativePath(root, directory).Replace('\\', '/');
+                    return new FileEntry(RelativePath.Parse(relative), true, 0, Directory.GetLastWriteTimeUtc(directory));
+                });
+            var files = Directory.EnumerateFiles(currentDirectory)
                 .Select(file =>
                 {
                     var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
                     var info = new FileInfo(file);
                     return new FileEntry(RelativePath.Parse(relative), false, info.Length, info.LastWriteTimeUtc);
-                })
-                .ToArray();
-            LocalPane.ReplaceFiles(files);
+                });
+            LocalPane.ReplaceFiles(directories.Concat(files));
         }
         catch (Exception ex)
         {
@@ -334,5 +381,31 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    private static RelativePath? ToRelativePath(string path)
+    {
+        var normalized = FilePaneViewModel.NormalizePath(path).Trim('/');
+        return normalized.Length == 0 ? null : RelativePath.Parse(normalized);
+    }
+
+    private static string ToLocalDirectoryPath(string root, string currentPath)
+    {
+        var relative = FilePaneViewModel.NormalizePath(currentPath).Trim('/');
+        var fullPath = relative.Length == 0
+            ? Path.GetFullPath(root)
+            : Path.GetFullPath(Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar)));
+        var rootPath = Path.GetFullPath(root);
+        var rootWithSeparator = rootPath.EndsWith(Path.DirectorySeparatorChar)
+            ? rootPath
+            : rootPath + Path.DirectorySeparatorChar;
+
+        if (!fullPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase)
+            && !fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("本地路径超出根目录。");
+        }
+
+        return fullPath;
     }
 }

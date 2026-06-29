@@ -13,6 +13,33 @@ public sealed class LocalMirrorRemoteClient : IRemoteFileClient
         Directory.CreateDirectory(_root);
     }
 
+    public Task<IReadOnlyList<FileEntry>> ListDirectoryAsync(RelativePath? directory, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var fullDirectory = ToDirectoryFullPath(directory);
+        if (!Directory.Exists(fullDirectory))
+        {
+            return Task.FromResult<IReadOnlyList<FileEntry>>(Array.Empty<FileEntry>());
+        }
+
+        var directories = Directory.EnumerateDirectories(fullDirectory)
+            .Select(path =>
+            {
+                var relative = Path.GetRelativePath(_root, path).Replace('\\', '/');
+                return new FileEntry(RelativePath.Parse(relative), true, 0, Directory.GetLastWriteTimeUtc(path));
+            });
+        var files = Directory.EnumerateFiles(fullDirectory)
+            .Select(file =>
+            {
+                var relative = Path.GetRelativePath(_root, file).Replace('\\', '/');
+                var info = new FileInfo(file);
+                return new FileEntry(RelativePath.Parse(relative), false, info.Length, info.LastWriteTimeUtc);
+            });
+
+        return Task.FromResult<IReadOnlyList<FileEntry>>(directories.Concat(files).ToArray());
+    }
+
     public Task<IReadOnlyList<FileEntry>> ListRecursiveAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -121,6 +148,16 @@ public sealed class LocalMirrorRemoteClient : IRemoteFileClient
         }
 
         return fullPath;
+    }
+
+    private string ToDirectoryFullPath(RelativePath? path)
+    {
+        if (path is null)
+        {
+            return Path.GetFullPath(_root);
+        }
+
+        return ToFullPath(path);
     }
 
     private static void DeleteTempFileIfExists(string tempPath)

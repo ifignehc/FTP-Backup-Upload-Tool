@@ -31,6 +31,7 @@ public partial class MainWindow : Window
             new UploadService(unconfiguredClient, string.Empty),
             new CheckService(unconfiguredClient, unconfiguredClient));
         viewModel.SettingsRequested += OnSettingsRequested;
+        viewModel.ProcessSelectionRequested += OnProcessSelectionRequested;
         DataContext = viewModel;
         Loaded += OnLoaded;
     }
@@ -40,6 +41,7 @@ public partial class MainWindow : Window
         try
         {
             var config = await configStore.LoadAsync(CancellationToken.None);
+            viewModel.ReplaceProcesses(config.Processes);
             var selected = config.Processes.FirstOrDefault();
 
             if (selected is null)
@@ -76,12 +78,44 @@ public partial class MainWindow : Window
                 }
 
                 await LoadProcessRuntimeAsync(savedProcess);
+                viewModel.ReplaceProcesses((await configStore.LoadAsync(CancellationToken.None)).Processes);
             }
             catch (Exception ex)
             {
                 viewModel.AddLog($"[Error] 加载新配置失败：{ex.Message}");
             }
         }
+    }
+
+    private async void OnProcessSelectionRequested(object? sender, string processName)
+    {
+        if (string.IsNullOrWhiteSpace(processName))
+        {
+            return;
+        }
+
+        try
+        {
+            var config = await configStore.LoadAsync(CancellationToken.None);
+            var selected = config.Processes.FirstOrDefault(process =>
+                string.Equals(process.Name, processName, StringComparison.OrdinalIgnoreCase));
+            if (selected is null)
+            {
+                viewModel.AddLog($"[Warning] 未找到工序配置：{processName}");
+                return;
+            }
+
+            await LoadProcessRuntimeAsync(selected);
+        }
+        catch (Exception ex)
+        {
+            viewModel.AddLog($"[Error] 切换工序失败：{ex.Message}");
+        }
+    }
+
+    private async void OnFilePanePathRefreshRequested(object sender, EventArgs e)
+    {
+        await viewModel.RefreshFilePanesAsync(CancellationToken.None);
     }
 
     private async Task LoadProcessRuntimeAsync(ProcessConfig process)
@@ -417,6 +451,11 @@ internal sealed record FilePaneClipboard(FilePaneKind Source, IReadOnlyList<File
 
 internal sealed class UnconfiguredRemoteFileClient : IRemoteFileClient
 {
+    public Task<IReadOnlyList<FileEntry>> ListDirectoryAsync(RelativePath? directory, CancellationToken cancellationToken)
+    {
+        throw CreateException();
+    }
+
     public Task<IReadOnlyList<FileEntry>> ListRecursiveAsync(CancellationToken cancellationToken)
     {
         throw CreateException();

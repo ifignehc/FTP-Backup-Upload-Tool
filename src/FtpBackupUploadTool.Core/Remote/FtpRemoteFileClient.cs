@@ -31,6 +31,21 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         _credentials = credentials;
     }
 
+    public async Task<IReadOnlyList<FileEntry>> ListDirectoryAsync(RelativePath? directory, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var entries = await TryListDirectoryDetailsAsync(directory, cancellationToken);
+        if (entries is not null)
+        {
+            return entries
+                .Select(entry => new FileEntry(Combine(directory, entry.Name), entry.IsDirectory, entry.Size, entry.LastModified))
+                .ToArray();
+        }
+
+        return await ListDirectoryByNamesAsync(directory, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<FileEntry>> ListRecursiveAsync(CancellationToken cancellationToken)
     {
         var files = new List<FileEntry>();
@@ -194,6 +209,33 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
                 await ListRecursiveAsync(childPath, files, visitedDirectories, cancellationToken);
             }
         }
+    }
+
+    private async Task<IReadOnlyList<FileEntry>> ListDirectoryByNamesAsync(
+        RelativePath? directory,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<FileEntry>();
+        var names = await ListNamesAsync(directory, cancellationToken);
+        foreach (var name in names)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var childPath = Combine(directory, name);
+            var file = await GetFileEntryAsync(childPath, cancellationToken);
+            if (file is not null)
+            {
+                result.Add(file);
+                continue;
+            }
+
+            if (await DirectoryExistsAsync(childPath, cancellationToken))
+            {
+                result.Add(new FileEntry(childPath, true, 0, null));
+            }
+        }
+
+        return result;
     }
 
     private async Task<IReadOnlyList<DirectoryListEntry>?> TryListDirectoryDetailsAsync(

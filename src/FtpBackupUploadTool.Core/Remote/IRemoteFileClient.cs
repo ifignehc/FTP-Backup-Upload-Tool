@@ -5,6 +5,7 @@ namespace FtpBackupUploadTool.Core.Remote;
 
 public interface IRemoteFileClient
 {
+    Task<IReadOnlyList<FileEntry>> ListDirectoryAsync(RelativePath? directory, CancellationToken cancellationToken);
     Task<IReadOnlyList<FileEntry>> ListRecursiveAsync(CancellationToken cancellationToken);
     Task<bool> FileExistsAsync(RelativePath path, CancellationToken cancellationToken);
     Task<bool> DirectoryExistsAsync(RelativePath path, CancellationToken cancellationToken);

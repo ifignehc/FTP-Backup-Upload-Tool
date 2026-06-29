@@ -1,9 +1,10 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using FtpBackupUploadTool.Core.Models;
 
 namespace FtpBackupUploadTool.App.ViewModels;
 
-public sealed class FilePaneViewModel
+public sealed class FilePaneViewModel : INotifyPropertyChanged
 {
     private string currentPath = "/";
 
@@ -14,12 +15,24 @@ public sealed class FilePaneViewModel
         Files = new ObservableCollection<FileEntry>(files);
     }
 
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     public string Title { get; }
 
     public string CurrentPath
     {
         get => currentPath;
-        set => currentPath = string.IsNullOrWhiteSpace(value) ? "/" : value;
+        set
+        {
+            var normalized = NormalizePath(value);
+            if (currentPath == normalized)
+            {
+                return;
+            }
+
+            currentPath = normalized;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrentPath)));
+        }
     }
 
     public bool IsReadOnly { get; }
@@ -30,9 +43,22 @@ public sealed class FilePaneViewModel
     {
         Files.Clear();
 
-        foreach (var file in files.OrderBy(file => file.Path.Value, StringComparer.OrdinalIgnoreCase))
+        foreach (var file in files
+                     .OrderByDescending(file => file.IsDirectory)
+                     .ThenBy(file => file.DisplayName, StringComparer.OrdinalIgnoreCase))
         {
             Files.Add(file);
         }
+    }
+
+    public static string NormalizePath(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "/";
+        }
+
+        var normalized = value.Trim().Replace('\\', '/').Trim('/');
+        return normalized.Length == 0 ? "/" : "/" + normalized;
     }
 }

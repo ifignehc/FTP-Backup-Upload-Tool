@@ -23,21 +23,26 @@ public partial class FilePaneControl : UserControl
 
     public event EventHandler<FilePaneDropEventArgs>? FilesDropped;
 
+    public event EventHandler? PathRefreshRequested;
+
     private bool IsPaneReadOnly => DataContext is FilePaneViewModel viewModel && viewModel.IsReadOnly;
 
     private IReadOnlyList<FileEntry> SelectedFiles =>
         fileListView.SelectedItems.OfType<FileEntry>().ToArray();
 
+    private IReadOnlyList<FileEntry> SelectedRegularFiles =>
+        SelectedFiles.Where(file => !file.IsDirectory).ToArray();
+
     private void OnContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        copyMenuItem.IsEnabled = SelectedFiles.Count > 0;
+        copyMenuItem.IsEnabled = SelectedRegularFiles.Count > 0;
         pasteMenuItem.IsEnabled = !IsPaneReadOnly;
-        deleteMenuItem.IsEnabled = !IsPaneReadOnly && SelectedFiles.Count > 0;
+        deleteMenuItem.IsEnabled = !IsPaneReadOnly && SelectedRegularFiles.Count > 0;
     }
 
     private void OnCopyClicked(object sender, RoutedEventArgs e)
     {
-        var files = SelectedFiles;
+        var files = SelectedRegularFiles;
         if (files.Count == 0)
         {
             return;
@@ -65,7 +70,7 @@ public partial class FilePaneControl : UserControl
             return;
         }
 
-        var files = SelectedFiles;
+        var files = SelectedRegularFiles;
         if (files.Count == 0)
         {
             return;
@@ -104,7 +109,7 @@ public partial class FilePaneControl : UserControl
             return;
         }
 
-        var files = SelectedFiles;
+        var files = SelectedRegularFiles;
         if (files.Count == 0)
         {
             return;
@@ -112,6 +117,58 @@ public partial class FilePaneControl : UserControl
 
         DragDrop.DoDragDrop(fileListView, new FilePaneDragPayload(this, files), DragDropEffects.Copy);
         dragStartPoint = null;
+    }
+
+    private void OnPathTextBoxKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        RefreshPath();
+        e.Handled = true;
+    }
+
+    private void OnGoClicked(object sender, RoutedEventArgs e)
+    {
+        RefreshPath();
+    }
+
+    private void OnUpClicked(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not FilePaneViewModel viewModel)
+        {
+            return;
+        }
+
+        var current = FilePaneViewModel.NormalizePath(viewModel.CurrentPath).Trim('/');
+        var index = current.LastIndexOf('/');
+        viewModel.CurrentPath = index < 0 ? "/" : current[..index];
+        PathRefreshRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnListViewMouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is not FilePaneViewModel viewModel ||
+            fileListView.SelectedItem is not FileEntry { IsDirectory: true } directory)
+        {
+            return;
+        }
+
+        viewModel.CurrentPath = directory.Path.Value;
+        PathRefreshRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void RefreshPath()
+    {
+        pathTextBox.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+        if (DataContext is FilePaneViewModel viewModel)
+        {
+            viewModel.CurrentPath = FilePaneViewModel.NormalizePath(viewModel.CurrentPath);
+        }
+
+        PathRefreshRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnDrop(object sender, DragEventArgs e)

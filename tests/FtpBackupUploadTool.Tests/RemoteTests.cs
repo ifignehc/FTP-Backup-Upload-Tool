@@ -66,6 +66,38 @@ internal static class RemoteTests
         TestAssert.Equal("body", System.Text.Encoding.UTF8.GetString(downloaded.ToArray()), "downloaded content");
     }
 
+    public static void LocalMirrorListsImmediateDirectoryContents()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "ftp-tool-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "images"));
+        Directory.CreateDirectory(Path.Combine(root, "scripts"));
+        File.WriteAllText(Path.Combine(root, "index.html"), "html");
+        File.WriteAllText(Path.Combine(root, "images", "logo.png"), "png");
+        var client = new LocalMirrorRemoteClient(root);
+
+        var entries = client.ListDirectoryAsync(null, CancellationToken.None).GetAwaiter().GetResult();
+
+        TestAssert.Equal(3, entries.Count, "root should show immediate children only");
+        TestAssert.True(entries.Any(entry => entry.IsDirectory && entry.Path.Value == "images"), "images directory should be visible");
+        TestAssert.True(entries.Any(entry => entry.IsDirectory && entry.Path.Value == "scripts"), "scripts directory should be visible");
+        TestAssert.True(entries.Any(entry => !entry.IsDirectory && entry.Path.Value == "index.html"), "root file should be visible");
+        TestAssert.True(entries.All(entry => entry.Path.Value != "images/logo.png"), "nested file should not appear in root listing");
+    }
+
+    public static void LocalMirrorListsChildDirectoryWithFullRelativePaths()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "ftp-tool-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "images", "icons"));
+        File.WriteAllText(Path.Combine(root, "images", "logo.png"), "png");
+        var client = new LocalMirrorRemoteClient(root);
+
+        var entries = client.ListDirectoryAsync(RelativePath.Parse("images"), CancellationToken.None).GetAwaiter().GetResult();
+
+        TestAssert.Equal(2, entries.Count, "child directory should show immediate children only");
+        TestAssert.True(entries.Any(entry => entry.IsDirectory && entry.Path.Value == "images/icons"), "nested directory should keep full relative path");
+        TestAssert.True(entries.Any(entry => !entry.IsDirectory && entry.Path.Value == "images/logo.png"), "nested file should keep full relative path");
+    }
+
     public static void CanceledUploadDoesNotCreateOrTruncateTargetFile()
     {
         var root = Path.Combine(Path.GetTempPath(), "ftp-tool-tests", Guid.NewGuid().ToString("N"));

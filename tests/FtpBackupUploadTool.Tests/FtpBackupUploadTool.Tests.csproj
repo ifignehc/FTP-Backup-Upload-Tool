@@ -7,6 +7,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\FtpBackupUploadTool.App\FtpBackupUploadTool.App.csproj" />
     <ProjectReference Include="..\..\src\FtpBackupUploadTool.Core\FtpBackupUploadTool.Core.csproj" />
   </ItemGroup>
 </Project>

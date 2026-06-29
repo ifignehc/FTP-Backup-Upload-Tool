@@ -9,11 +9,24 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBox Grid.Row="0"
-                 Margin="0,0,0,6"
-                 Padding="8,6"
-                 IsReadOnly="True"
-                 Text="{Binding CurrentPath, Mode=OneWay}" />
+        <DockPanel Grid.Row="0" Margin="0,0,0,6" LastChildFill="True">
+            <Button DockPanel.Dock="Left"
+                    Width="32"
+                    Margin="0,0,6,0"
+                    Content="↑"
+                    Click="OnUpClicked"
+                    ToolTip="上一级" />
+            <Button DockPanel.Dock="Right"
+                    MinWidth="56"
+                    Margin="6,0,0,0"
+                    Padding="10,5"
+                    Content="进入"
+                    Click="OnGoClicked" />
+            <TextBox x:Name="pathTextBox"
+                     Padding="8,6"
+                     Text="{Binding CurrentPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     KeyDown="OnPathTextBoxKeyDown" />
+        </DockPanel>
 
         <ListView x:Name="fileListView"
                   Grid.Row="1"
@@ -23,6 +36,7 @@
                   PreviewMouseLeftButtonDown="OnListViewPreviewMouseLeftButtonDown"
                   PreviewMouseLeftButtonUp="OnListViewPreviewMouseLeftButtonUp"
                   PreviewMouseMove="OnListViewPreviewMouseMove"
+                  MouseDoubleClick="OnListViewMouseDoubleClick"
                   ContextMenuOpening="OnContextMenuOpening">
             <ListView.ContextMenu>
                 <ContextMenu>
@@ -33,8 +47,8 @@
             </ListView.ContextMenu>
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Width="160" Header="名称/路径" DisplayMemberBinding="{Binding Path.Value}" />
-                    <GridViewColumn Width="80" Header="大小" DisplayMemberBinding="{Binding Size}" />
+                    <GridViewColumn Width="160" Header="名称/路径" DisplayMemberBinding="{Binding DisplayName}" />
+                    <GridViewColumn Width="80" Header="大小" DisplayMemberBinding="{Binding SizeDisplay}" />
                     <GridViewColumn Width="150" Header="修改时间" DisplayMemberBinding="{Binding LastModified}" />
                 </GridView>
             </ListView.View>

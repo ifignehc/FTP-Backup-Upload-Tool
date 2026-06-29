@@ -11,6 +11,7 @@ public partial class SettingsWindow : Window
     private readonly AppConfigStore configStore;
     private readonly IPasswordProtector passwordProtector;
     private readonly SettingsViewModel viewModel = new();
+    private readonly ProcessConfig? currentProcess;
 
     public SettingsWindow()
         : this(
@@ -27,9 +28,11 @@ public partial class SettingsWindow : Window
     {
         this.configStore = configStore;
         this.passwordProtector = passwordProtector;
+        this.currentProcess = currentProcess;
 
         InitializeComponent();
         DataContext = viewModel;
+        Loaded += OnLoaded;
 
         if (currentProcess is not null)
         {
@@ -38,6 +41,19 @@ public partial class SettingsWindow : Window
     }
 
     public ProcessConfig? SavedProcess { get; private set; }
+
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var config = await configStore.LoadAsync(CancellationToken.None);
+            viewModel.LoadProcesses(config.Processes, currentProcess?.Name);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "加载设置失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     private async void OnSaveClick(object sender, RoutedEventArgs e)
     {
