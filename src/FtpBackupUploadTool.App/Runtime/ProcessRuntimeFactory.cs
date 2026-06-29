@@ -19,8 +19,8 @@ public sealed class ProcessRuntimeFactory
     {
         ArgumentNullException.ThrowIfNull(config);
 
-        var productionPassword = passwordProtector.Unprotect(config.ProductionServer.EncryptedPassword);
-        var draftPassword = passwordProtector.Unprotect(config.DraftServer.EncryptedPassword);
+        var productionPassword = ResolvePassword(config.ProductionServer.EncryptedPassword);
+        var draftPassword = ResolvePassword(config.DraftServer.EncryptedPassword);
 
         var production = new FtpRemoteFileClient(
             config.ProductionServer.Host,
@@ -41,5 +41,12 @@ public sealed class ProcessRuntimeFactory
             new CheckService(production, draft),
             production,
             draft);
+    }
+
+    private string ResolvePassword(string encryptedPassword)
+    {
+        return string.IsNullOrWhiteSpace(encryptedPassword)
+            ? string.Empty
+            : passwordProtector.Unprotect(encryptedPassword);
     }
 }
