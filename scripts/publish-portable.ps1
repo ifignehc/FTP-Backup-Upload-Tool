@@ -11,4 +11,13 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-Write-Host "Portable build: $output"
+$defaultExe = Join-Path $output 'FtpBackupUploadTool.exe'
+$portableExe = Join-Path $output 'FTP BU Tool.exe'
+
+if (Test-Path -LiteralPath $portableExe) {
+    Remove-Item -LiteralPath $portableExe -Force
+}
+
+Move-Item -LiteralPath $defaultExe -Destination $portableExe
+
+Write-Host "Portable build: $portableExe"

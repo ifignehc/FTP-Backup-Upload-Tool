@@ -23,6 +23,8 @@ var tests = new Action[]
     SettingsViewModelTests.CopySelectedProcessCreatesDraftWithCurrentFields,
     SettingsViewModelTests.DeleteSelectedProcessRemovesItAndSelectsRemainingProcess,
     MainWindowTests.MainWindowTitleIsFtpBuTool,
+    PublishScriptTests.PublishScriptNamesPortableExeFtpBuTool,
+    AppProjectTests.AppProjectEmbedsWindowIconResource,
     MainViewModelTests.StartsWithEmptyPathList,
     ProcessRuntimeFactoryTests.EmptySavedPasswordsCreateRuntimeWithBlankPasswords,
     RemoteTests.FtpPathBuildsRootUriFromTrimmedRoot,
