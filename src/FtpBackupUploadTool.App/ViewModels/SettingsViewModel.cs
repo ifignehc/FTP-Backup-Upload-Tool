@@ -7,6 +7,9 @@ namespace FtpBackupUploadTool.App.ViewModels;
 
 public sealed class SettingsViewModel : INotifyPropertyChanged
 {
+    private const string NewProcessName = "新工序";
+    private const string CopySuffix = " 副本";
+
     private readonly Dictionary<string, ProcessConfig> savedProcesses = new(StringComparer.OrdinalIgnoreCase);
     private bool isLoadingProcess;
     private string selectedProcess;
@@ -234,6 +237,74 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         ProcessLoaded?.Invoke(this, EventArgs.Empty);
     }
 
+    public void AddProcess()
+    {
+        var name = CreateUniqueProcessName(NewProcessName);
+        Processes.Add(name);
+        SelectDraftProcess(name);
+        ResetProcessFields(name);
+    }
+
+    public void CopySelectedProcess()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedProcess))
+        {
+            return;
+        }
+
+        var baseName = string.IsNullOrWhiteSpace(ProcessName) ? SelectedProcess : ProcessName.Trim();
+        var name = CreateUniqueProcessName($"{baseName}{CopySuffix}");
+        Processes.Add(name);
+        SelectDraftProcess(name);
+        ProcessName = name;
+    }
+
+    public bool DeleteSelectedProcess()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedProcess))
+        {
+            return false;
+        }
+
+        var selectedName = SelectedProcess;
+        var selectedIndex = FindProcessIndex(selectedName);
+        if (selectedIndex < 0)
+        {
+            return false;
+        }
+
+        Processes.RemoveAt(selectedIndex);
+        savedProcesses.Remove(selectedName);
+
+        if (Processes.Count == 0)
+        {
+            var name = CreateUniqueProcessName(NewProcessName);
+            Processes.Add(name);
+            SelectDraftProcess(name);
+            ResetProcessFields(name);
+            return true;
+        }
+
+        var nextIndex = Math.Min(selectedIndex, Processes.Count - 1);
+        var nextName = Processes[nextIndex];
+        if (savedProcesses.TryGetValue(nextName, out var nextConfig))
+        {
+            LoadProcess(nextConfig);
+        }
+        else
+        {
+            SelectDraftProcess(nextName);
+            ProcessName = nextName;
+        }
+
+        return true;
+    }
+
+    public bool HasSavedSelectedProcess()
+    {
+        return savedProcesses.ContainsKey(SelectedProcess);
+    }
+
     public ProcessConfig BuildProcessConfig(
         IPasswordProtector passwordProtector,
         string productionPassword,
@@ -294,6 +365,78 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
         var encryptedPassword = GetSelectedProcess()?.DraftServer.EncryptedPassword;
         return GetPasswordForDisplay(passwordProtector, encryptedPassword, RememberDraftPassword);
+    }
+
+    private void SelectDraftProcess(string name)
+    {
+        isLoadingProcess = true;
+        try
+        {
+            SelectedProcess = name;
+        }
+        finally
+        {
+            isLoadingProcess = false;
+        }
+    }
+
+    private void ResetProcessFields(string name)
+    {
+        ProcessName = name;
+        ProductionHost = "192.168.1.10";
+        ProductionPort = "21";
+        ProductionAccount = "prod_user";
+        ProductionPasswordHint = GetPasswordHint(string.Empty);
+        RememberProductionPassword = false;
+        DraftHost = "192.168.1.20";
+        DraftPort = "21";
+        DraftAccount = "draft_user";
+        DraftPasswordHint = GetPasswordHint(string.Empty);
+        RememberDraftPassword = false;
+        ServerRoot = "/www/project";
+        LocalRoot = @"D:\Release\project";
+        BackupDirectory = @"%USERPROFILE%\Desktop";
+        BackupTemplate = "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup";
+
+        foreach (var field in LogFields)
+        {
+            field.IsChecked = true;
+        }
+
+        ProcessLoaded?.Invoke(this, EventArgs.Empty);
+    }
+
+    private string CreateUniqueProcessName(string baseName)
+    {
+        var normalizedBaseName = string.IsNullOrWhiteSpace(baseName) ? NewProcessName : baseName.Trim();
+        var candidate = normalizedBaseName;
+        var index = 2;
+
+        while (ContainsProcessName(candidate))
+        {
+            candidate = $"{normalizedBaseName} {index}";
+            index++;
+        }
+
+        return candidate;
+    }
+
+    private bool ContainsProcessName(string name)
+    {
+        return Processes.Any(process => string.Equals(process, name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private int FindProcessIndex(string name)
+    {
+        for (var index = 0; index < Processes.Count; index++)
+        {
+            if (string.Equals(Processes[index], name, StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private bool SetProperty(ref string field, string value, string propertyName)

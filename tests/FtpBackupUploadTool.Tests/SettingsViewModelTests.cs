@@ -83,6 +83,53 @@ internal static class SettingsViewModelTests
         TestAssert.Equal(string.Empty, saved.DraftServer.EncryptedPassword, "draft password should be cleared when remember password is off");
     }
 
+    public static void AddProcessCreatesBlankDraftWithUniqueName()
+    {
+        var existing = CreateProcess("test", "prod-a", "draft-a", "enc-prod-a", "enc-draft-a");
+        var viewModel = new SettingsViewModel();
+        viewModel.LoadProcesses(new[] { existing }, "test");
+
+        viewModel.AddProcess();
+
+        TestAssert.Equal(2, viewModel.Processes.Count, "new process should be added to process list");
+        TestAssert.Equal(viewModel.SelectedProcess, viewModel.ProcessName, "new draft name should match selected process");
+        TestAssert.True(!string.Equals("test", viewModel.SelectedProcess, StringComparison.OrdinalIgnoreCase), "new draft should use a unique name");
+        TestAssert.Equal("192.168.1.10", viewModel.ProductionHost, "new draft should reset production host to defaults");
+        TestAssert.Equal("192.168.1.20", viewModel.DraftHost, "new draft should reset draft host to defaults");
+        TestAssert.True(!viewModel.RememberProductionPassword, "new draft should not inherit production password state");
+        TestAssert.True(!viewModel.RememberDraftPassword, "new draft should not inherit draft password state");
+    }
+
+    public static void CopySelectedProcessCreatesDraftWithCurrentFields()
+    {
+        var existing = CreateProcess("test", "prod-a", "draft-a", "enc-prod-a", "enc-draft-a");
+        var viewModel = new SettingsViewModel();
+        viewModel.LoadProcesses(new[] { existing }, "test");
+
+        viewModel.CopySelectedProcess();
+
+        TestAssert.Equal(2, viewModel.Processes.Count, "copied process should be added to process list");
+        TestAssert.Equal(viewModel.SelectedProcess, viewModel.ProcessName, "copied draft name should match selected process");
+        TestAssert.True(viewModel.SelectedProcess.StartsWith("test", StringComparison.OrdinalIgnoreCase), "copied draft should be based on selected name");
+        TestAssert.Equal("prod-a", viewModel.ProductionHost, "copied draft should keep production host");
+        TestAssert.Equal("draft-a", viewModel.DraftHost, "copied draft should keep draft host");
+    }
+
+    public static void DeleteSelectedProcessRemovesItAndSelectsRemainingProcess()
+    {
+        var first = CreateProcess("first", "prod-a", "draft-a", "enc-prod-a", "enc-draft-a");
+        var second = CreateProcess("second", "prod-b", "draft-b", "enc-prod-b", "enc-draft-b");
+        var viewModel = new SettingsViewModel();
+        viewModel.LoadProcesses(new[] { first, second }, "first");
+
+        var deleted = viewModel.DeleteSelectedProcess();
+
+        TestAssert.True(deleted, "delete should report success when a process is selected");
+        TestAssert.Equal(1, viewModel.Processes.Count, "selected process should be removed");
+        TestAssert.Equal("second", viewModel.SelectedProcess, "remaining process should be selected");
+        TestAssert.Equal("prod-b", viewModel.ProductionHost, "remaining process fields should load");
+    }
+
     private static ProcessConfig CreateProcess(
         string name,
         string productionHost,

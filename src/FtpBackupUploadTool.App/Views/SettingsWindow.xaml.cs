@@ -12,6 +12,7 @@ public partial class SettingsWindow : Window
     private readonly IPasswordProtector passwordProtector;
     private readonly SettingsViewModel viewModel = new();
     private readonly ProcessConfig? currentProcess;
+    private readonly HashSet<string> deletedProcessNames = new(StringComparer.OrdinalIgnoreCase);
 
     public SettingsWindow()
         : this(
@@ -88,6 +89,46 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void OnAddProcessClick(object sender, RoutedEventArgs e)
+    {
+        viewModel.AddProcess();
+        ClearPasswordBoxes();
+    }
+
+    private void OnCopyProcessClick(object sender, RoutedEventArgs e)
+    {
+        viewModel.CopySelectedProcess();
+    }
+
+    private void OnDeleteProcessClick(object sender, RoutedEventArgs e)
+    {
+        var processName = viewModel.SelectedProcess;
+        if (string.IsNullOrWhiteSpace(processName))
+        {
+            return;
+        }
+
+        var result = MessageBox.Show(
+            $"确定删除工序“{processName}”吗？",
+            "删除工序",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (result != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        if (viewModel.HasSavedSelectedProcess())
+        {
+            deletedProcessNames.Add(processName);
+        }
+
+        if (viewModel.DeleteSelectedProcess() && !viewModel.HasSavedSelectedProcess())
+        {
+            ClearPasswordBoxes();
+        }
+    }
+
     private async void OnSaveClick(object sender, RoutedEventArgs e)
     {
         try
@@ -103,15 +144,18 @@ public partial class SettingsWindow : Window
                 DraftPasswordBox.Password,
                 existingProcess);
             var duplicateProcess = existingConfig.Processes.FirstOrDefault(item =>
-                !string.Equals(item.Name, existingProcess?.Name, StringComparison.OrdinalIgnoreCase)
+                !deletedProcessNames.Contains(item.Name)
+                && !string.Equals(item.Name, existingProcess?.Name, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(item.Name, process.Name, StringComparison.OrdinalIgnoreCase));
             if (duplicateProcess is not null)
             {
                 throw new InvalidOperationException("工序名称已存在，请使用其他名称。");
             }
 
+            var replacedProcessName = existingProcess?.Name ?? process.Name;
             var processes = existingConfig.Processes
-                .Where(item => !string.Equals(item.Name, existingProcess?.Name ?? process.Name, StringComparison.OrdinalIgnoreCase))
+                .Where(item => !deletedProcessNames.Contains(item.Name))
+                .Where(item => !string.Equals(item.Name, replacedProcessName, StringComparison.OrdinalIgnoreCase))
                 .Append(process)
                 .ToArray();
 
@@ -131,6 +175,12 @@ public partial class SettingsWindow : Window
     {
         SetProductionPasswordBoxFromSavedPassword();
         SetDraftPasswordBoxFromSavedPassword();
+    }
+
+    private void ClearPasswordBoxes()
+    {
+        ProductionPasswordBox.Password = string.Empty;
+        DraftPasswordBox.Password = string.Empty;
     }
 
     private void SetProductionPasswordBoxFromSavedPassword()
