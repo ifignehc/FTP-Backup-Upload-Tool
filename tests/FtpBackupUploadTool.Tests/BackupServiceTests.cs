@@ -22,15 +22,15 @@ internal static class BackupServiceTests
         var result = service.RunAsync(paths, backupRoot, "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup", LogFieldOptions.All, CancellationToken.None).GetAwaiter().GetResult();
 
         TestAssert.True(File.Exists(Path.Combine(result.BackupFolder, "css", "site.css")), "existing production file should be backed up");
-        TestAssert.True(File.Exists(Path.Combine(result.BackupFolder, "backup-log.csv")), "backup log should exist");
-        var logText = File.ReadAllText(Path.Combine(result.BackupFolder, "backup-log.csv"));
+        TestAssert.True(File.Exists(Path.Combine(result.BackupFolder, "backup-log.md")), "Markdown backup log should exist");
+        var logText = File.ReadAllText(Path.Combine(result.BackupFolder, "backup-log.md"));
         TestAssert.True(logText.Contains("新文件，生产服务器不存在，跳过备份", StringComparison.Ordinal), "missing production file should be logged as new file");
         TestAssert.True(result.Logs.Any(log => log.Message == "新文件，跳过备份"), "missing production file should be logged with readable Chinese UI text");
     }
 
     public static void BackupLogWriterHonorsSelectedFields()
     {
-        var logPath = Path.Combine(Path.GetTempPath(), "ftp-tool-backup-log", Guid.NewGuid().ToString("N"), "backup-log.csv");
+        var logPath = Path.Combine(Path.GetTempPath(), "ftp-tool-backup-log", Guid.NewGuid().ToString("N"), "backup-log.md");
         Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
         var writer = new BackupLogWriter();
         var rows = new[]
@@ -49,10 +49,38 @@ internal static class BackupServiceTests
 
         writer.WriteAsync(logPath, rows, LogFieldOptions.RelativePath | LogFieldOptions.Result, CancellationToken.None).GetAwaiter().GetResult();
 
-        var lines = File.ReadAllLines(logPath);
-        TestAssert.Equal("RelativePath,Result", lines[0].TrimStart('\uFEFF'), "CSV header should contain only selected fields");
-        TestAssert.True(!lines[0].Contains("ProductionFullPath", StringComparison.Ordinal), "CSV header should omit unselected production field");
-        TestAssert.True(!lines[0].Contains("Note", StringComparison.Ordinal), "CSV header should omit unselected note field");
+        var markdown = File.ReadAllText(logPath, Encoding.UTF8);
+        TestAssert.True(markdown.Contains("## Entry 1", StringComparison.Ordinal), "Markdown log should use normal entry sections");
+        TestAssert.True(markdown.Contains("- RelativePath: css/site.css", StringComparison.Ordinal), "Markdown entry should include selected relative path field");
+        TestAssert.True(markdown.Contains("- Result: BackedUp", StringComparison.Ordinal), "Markdown entry should include selected result field");
+        TestAssert.True(!markdown.Contains("| RelativePath | Result |", StringComparison.Ordinal), "Markdown log should not use a table");
+        TestAssert.True(!markdown.Contains("ProductionFullPath", StringComparison.Ordinal), "Markdown entry should omit unselected production field");
+        TestAssert.True(!markdown.Contains("Note", StringComparison.Ordinal), "Markdown entry should omit unselected note field");
+    }
+
+    public static void BackupLogWriterFormatsLastModifiedAsBeijingTimeInMarkdown()
+    {
+        var logPath = Path.Combine(Path.GetTempPath(), "ftp-tool-backup-log", Guid.NewGuid().ToString("N"), "backup-log.md");
+        Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+        var writer = new BackupLogWriter();
+        var rows = new[]
+        {
+            new BackupLogRow(
+                RelativePath.Parse("css/site.css"),
+                "/prod/css/site.css",
+                "/draft/css/site.css",
+                @"D:\backup\css\site.css",
+                12,
+                new DateTimeOffset(2026, 6, 29, 15, 36, 29, TimeSpan.FromHours(8)),
+                "BackedUp",
+                "",
+                "note")
+        };
+
+        writer.WriteAsync(logPath, rows, LogFieldOptions.RelativePath | LogFieldOptions.LastModified, CancellationToken.None).GetAwaiter().GetResult();
+
+        var markdown = File.ReadAllText(logPath, Encoding.UTF8);
+        TestAssert.True(markdown.Contains("- LastModified: 2026-06-29 23:36:29", StringComparison.Ordinal), "LastModified should be converted to Beijing time in Markdown without an offset suffix");
     }
 
     public static void BackupServiceWritesSelectedFullPathFields()
@@ -73,7 +101,7 @@ internal static class BackupServiceTests
             "/prod/root",
             "/draft/root").GetAwaiter().GetResult();
 
-        var logText = File.ReadAllText(Path.Combine(result.BackupFolder, "backup-log.csv"));
+        var logText = File.ReadAllText(Path.Combine(result.BackupFolder, "backup-log.md"));
         TestAssert.True(logText.Contains("/prod/root/css/site.css", StringComparison.Ordinal), "backup log should include production full path");
         TestAssert.True(logText.Contains("/draft/root/css/site.css", StringComparison.Ordinal), "backup log should include draft full path");
         TestAssert.True(logText.Contains(Path.Combine(result.BackupFolder, "css", "site.css"), StringComparison.Ordinal), "backup log should include local backup path");
@@ -168,7 +196,7 @@ internal static class BackupServiceTests
 
     public static void BackupLogWriterCanceledBeforeReplacementPreservesExistingLog()
     {
-        var logPath = Path.Combine(Path.GetTempPath(), "ftp-tool-backup-log", Guid.NewGuid().ToString("N"), "backup-log.csv");
+        var logPath = Path.Combine(Path.GetTempPath(), "ftp-tool-backup-log", Guid.NewGuid().ToString("N"), "backup-log.md");
         Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
         File.WriteAllText(logPath, "existing-log", Encoding.UTF8);
         var writer = new BackupLogWriter();

@@ -32,6 +32,7 @@ var tests = new Action[]
     RemoteTests.LocalMirrorRejectsSiblingPrefixEscape,
     BackupServiceTests.BackupDownloadsExistingAndLogsNewFile,
     BackupServiceTests.BackupLogWriterHonorsSelectedFields,
+    BackupServiceTests.BackupLogWriterFormatsLastModifiedAsBeijingTimeInMarkdown,
     BackupServiceTests.BackupServiceWritesSelectedFullPathFields,
     BackupServiceTests.InvalidFolderTemplateThrowsBeforeCreatingOutsideBackupRoot,
     BackupServiceTests.RootedFolderTemplateThrowsBeforeCreatingOutsideBackupRoot,

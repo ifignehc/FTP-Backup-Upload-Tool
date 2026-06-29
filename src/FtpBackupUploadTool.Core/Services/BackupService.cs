@@ -90,7 +90,7 @@ public sealed class BackupService
                 string.Empty));
         }
 
-        await _logWriter.WriteAsync(Path.Combine(folder, "backup-log.csv"), rows, logFields, cancellationToken);
+        await _logWriter.WriteAsync(Path.Combine(folder, "backup-log.md"), rows, logFields, cancellationToken);
         return new BackupRunResult(folder, logs);
     }
 

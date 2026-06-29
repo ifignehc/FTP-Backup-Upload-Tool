@@ -18,6 +18,8 @@ public sealed record BackupLogRow(
 
 public sealed class BackupLogWriter
 {
+    private static readonly TimeSpan BeijingOffset = TimeSpan.FromHours(8);
+
     public async Task WriteAsync(
         string logPath,
         IReadOnlyList<BackupLogRow> rows,
@@ -26,8 +28,7 @@ public sealed class BackupLogWriter
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var lines = new List<string> { BuildHeader(fields) };
-        lines.AddRange(rows.Select(row => BuildLine(row, fields)));
+        var lines = BuildDocument(rows, fields);
 
         var directory = Path.GetDirectoryName(logPath) ?? ".";
         Directory.CreateDirectory(directory);
@@ -54,32 +55,42 @@ public sealed class BackupLogWriter
         }
     }
 
-    private static string BuildHeader(LogFieldOptions fields)
+    private static List<string> BuildDocument(IReadOnlyList<BackupLogRow> rows, LogFieldOptions fields)
     {
-        return string.Join(',', SelectedFields(fields));
+        var lines = new List<string> { "# Backup Log" };
+
+        for (var index = 0; index < rows.Count; index++)
+        {
+            if (index > 0)
+            {
+                lines.Add(string.Empty);
+            }
+
+            lines.Add($"## Entry {index + 1}");
+            lines.AddRange(BuildEntryLines(rows[index], fields));
+        }
+
+        return lines;
     }
 
-    private static string BuildLine(BackupLogRow row, LogFieldOptions fields)
+    private static IEnumerable<string> BuildEntryLines(BackupLogRow row, LogFieldOptions fields)
     {
-        var values = new List<string>();
         foreach (var field in SelectedFields(fields))
         {
-            values.Add(Escape(field switch
+            yield return $"- {field}: {Escape(field switch
             {
                 "RelativePath" => row.RelativePath.Value,
                 "ProductionFullPath" => row.ProductionFullPath,
                 "DraftFullPath" => row.DraftFullPath,
                 "LocalFullPath" => row.LocalFullPath,
                 "FileSize" => row.FileSize?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-                "LastModified" => row.LastModified?.ToString("u", CultureInfo.InvariantCulture) ?? string.Empty,
+                "LastModified" => FormatBeijingTime(row.LastModified),
                 "Result" => row.Result,
                 "ErrorMessage" => row.ErrorMessage,
                 "Note" => row.Note,
                 _ => string.Empty
-            }));
+            })}";
         }
-
-        return string.Join(',', values);
     }
 
     private static IReadOnlyList<string> SelectedFields(LogFieldOptions fields)
@@ -97,11 +108,21 @@ public sealed class BackupLogWriter
         return selected;
     }
 
+    private static string FormatBeijingTime(DateTimeOffset? value)
+    {
+        return value is null
+            ? string.Empty
+            : DateTime.SpecifyKind(value.Value.DateTime, DateTimeKind.Utc)
+                .Add(BeijingOffset)
+                .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+    }
+
     private static string Escape(string value)
     {
-        return value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r')
-            ? $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\""
-            : value;
+        return value
+            .Replace("\r\n", "<br>", StringComparison.Ordinal)
+            .Replace("\n", "<br>", StringComparison.Ordinal)
+            .Replace("\r", "<br>", StringComparison.Ordinal);
     }
 
     private static void TryDeleteTempFile(string path)
