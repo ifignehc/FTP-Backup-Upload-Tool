@@ -24,6 +24,14 @@ public sealed class CheckService
 
     public async Task<CheckRunResult> RunAsync(IReadOnlyList<RelativePath> paths, CancellationToken cancellationToken)
     {
+        return await RunAsync(paths, _localRootPath, cancellationToken);
+    }
+
+    public async Task<CheckRunResult> RunAsync(
+        IReadOnlyList<RelativePath> paths,
+        string? localRootPath,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
 
         var uniquePaths = GetUniquePaths(paths);
@@ -68,7 +76,7 @@ public sealed class CheckService
             }
         }
 
-        foreach (var localPath in GetLocalFilePaths(cancellationToken))
+        foreach (var localPath in GetLocalFilePaths(localRootPath, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (pathListSet.Contains(localPath.Value))
@@ -87,14 +95,14 @@ public sealed class CheckService
         return new CheckRunResult(logs);
     }
 
-    private IEnumerable<RelativePath> GetLocalFilePaths(CancellationToken cancellationToken)
+    private static IEnumerable<RelativePath> GetLocalFilePaths(string? localRootPath, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(_localRootPath))
+        if (string.IsNullOrWhiteSpace(localRootPath))
         {
             yield break;
         }
 
-        var root = Path.GetFullPath(Environment.ExpandEnvironmentVariables(_localRootPath));
+        var root = Path.GetFullPath(Environment.ExpandEnvironmentVariables(localRootPath));
         if (!Directory.Exists(root))
         {
             yield break;

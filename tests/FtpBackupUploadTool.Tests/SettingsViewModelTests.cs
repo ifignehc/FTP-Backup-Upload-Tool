@@ -171,6 +171,16 @@ internal static class SettingsViewModelTests
         TestAssert.True(!viewModel.DraftUsePassive, "draft active FTP mode should load into settings");
     }
 
+    public static void SettingsWindowDoesNotExposeLocalRootBinding()
+    {
+        var xamlPath = FindRepositoryFile("src", "FtpBackupUploadTool.App", "Views", "SettingsWindow.xaml");
+        var xaml = File.ReadAllText(xamlPath);
+
+        TestAssert.True(
+            !xaml.Contains("LocalRoot", StringComparison.Ordinal),
+            "settings window should not expose a local root directory setting");
+    }
+
     private static ProcessConfig CreateProcess(
         string name,
         string productionHost,
@@ -192,5 +202,22 @@ internal static class SettingsViewModelTests
         public string Protect(string plainText) => $"protected:{plainText}";
 
         public string Unprotect(string protectedText) => protectedText.Replace("protected:", string.Empty, StringComparison.Ordinal);
+    }
+
+    private static string FindRepositoryFile(params string[] relativeParts)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(new[] { directory.FullName }.Concat(relativeParts).ToArray());
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new FileNotFoundException("Could not locate repository file.", Path.Combine(relativeParts));
     }
 }

@@ -142,9 +142,7 @@ public partial class FilePaneControl : UserControl
             return;
         }
 
-        var current = FilePaneViewModel.NormalizePath(viewModel.CurrentPath).Trim('/');
-        var index = current.LastIndexOf('/');
-        viewModel.CurrentPath = index < 0 ? "/" : current[..index];
+        viewModel.CurrentPath = viewModel.GetParentPath();
         PathRefreshRequested?.Invoke(this, EventArgs.Empty);
     }
 
@@ -156,7 +154,7 @@ public partial class FilePaneControl : UserControl
             return;
         }
 
-        viewModel.CurrentPath = directory.Path.Value;
+        viewModel.CurrentPath = viewModel.GetChildPath(directory.Path.Value);
         PathRefreshRequested?.Invoke(this, EventArgs.Empty);
     }
 
@@ -165,7 +163,7 @@ public partial class FilePaneControl : UserControl
         pathTextBox.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
         if (DataContext is FilePaneViewModel viewModel)
         {
-            viewModel.CurrentPath = FilePaneViewModel.NormalizePath(viewModel.CurrentPath);
+            viewModel.NormalizeCurrentPath();
         }
 
         PathRefreshRequested?.Invoke(this, EventArgs.Empty);

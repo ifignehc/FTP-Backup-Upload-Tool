@@ -9,9 +9,9 @@ public sealed record UploadRunResult(IReadOnlyList<OperationLogEntry> Logs);
 public sealed class UploadService
 {
     private readonly IRemoteFileClient _draft;
-    private readonly string _localRoot;
+    private readonly string? _localRoot;
 
-    public UploadService(IRemoteFileClient draft, string localRoot)
+    public UploadService(IRemoteFileClient draft, string? localRoot = null)
     {
         _draft = draft;
         _localRoot = localRoot;
@@ -19,13 +19,21 @@ public sealed class UploadService
 
     public async Task<UploadRunResult> RunAsync(IReadOnlyList<RelativePath> paths, CancellationToken cancellationToken)
     {
+        return await RunAsync(paths, _localRoot, cancellationToken);
+    }
+
+    public async Task<UploadRunResult> RunAsync(
+        IReadOnlyList<RelativePath> paths,
+        string? localRoot,
+        CancellationToken cancellationToken)
+    {
         var logs = new List<OperationLogEntry>();
 
         foreach (var path in paths)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var localPath = ToLocalPath(path);
+            var localPath = ToLocalPath(path, localRoot);
             if (!File.Exists(localPath))
             {
                 logs.Add(new OperationLogEntry(DateTimeOffset.Now, OperationLogLevel.Error, "Upload", path, "本地文件不存在", localPath));
@@ -52,9 +60,16 @@ public sealed class UploadService
         return new UploadRunResult(logs);
     }
 
-    private string ToLocalPath(RelativePath path)
+    private string ToLocalPath(RelativePath path) => ToLocalPath(path, _localRoot);
+
+    private static string ToLocalPath(RelativePath path, string? localRoot)
     {
-        var root = Path.GetFullPath(_localRoot);
+        if (string.IsNullOrWhiteSpace(localRoot))
+        {
+            throw new InvalidOperationException("Local root path is empty.");
+        }
+
+        var root = Path.GetFullPath(Environment.ExpandEnvironmentVariables(localRoot));
         var fullPath = Path.GetFullPath(Path.Combine(root, path.Value.Replace('/', Path.DirectorySeparatorChar)));
         var rootWithSeparator = root.EndsWith(Path.DirectorySeparatorChar)
             ? root

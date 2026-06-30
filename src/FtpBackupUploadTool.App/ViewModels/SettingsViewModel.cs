@@ -27,7 +27,6 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private bool rememberDraftPassword;
     private bool draftUsePassive = true;
     private string serverRoot = "/www/project";
-    private string localRoot = @"D:\Release\project";
     private string backupDirectory = @"%USERPROFILE%\Desktop";
     private string backupTemplate = "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup";
 
@@ -156,12 +155,6 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         set => SetProperty(ref serverRoot, value, nameof(ServerRoot));
     }
 
-    public string LocalRoot
-    {
-        get => localRoot;
-        set => SetProperty(ref localRoot, value, nameof(LocalRoot));
-    }
-
     public string BackupDirectory
     {
         get => backupDirectory;
@@ -241,7 +234,6 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         RememberDraftPassword = HasSavedPassword(config.DraftServer.EncryptedPassword);
         DraftUsePassive = config.DraftServer.UsePassive;
         ServerRoot = config.ProductionServer.RootPath;
-        LocalRoot = config.LocalRootPath;
         BackupDirectory = config.Backup.BackupDirectory;
         BackupTemplate = config.Backup.FolderNameTemplate;
 
@@ -361,7 +353,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 draftEncryptedPassword,
                 RequireText(ServerRoot, "服务器根目录"),
                 DraftUsePassive),
-            RequireText(LocalRoot, "本地根目录"),
+            existingProcess?.LocalRootPath ?? string.Empty,
             existingProcess?.DefaultPathListFile ?? string.Empty,
             new BackupConfig(
                 RequireText(BackupDirectory, "备份保存目录"),
@@ -414,7 +406,6 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         RememberDraftPassword = false;
         DraftUsePassive = true;
         ServerRoot = "/www/project";
-        LocalRoot = @"D:\Release\project";
         BackupDirectory = @"%USERPROFILE%\Desktop";
         BackupTemplate = "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup";
 

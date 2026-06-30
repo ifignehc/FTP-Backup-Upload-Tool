@@ -37,7 +37,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         ProductionPane = new FilePaneViewModel("生产服务器", true, Array.Empty<FileEntry>());
         DraftPane = new FilePaneViewModel("起案服务器", false, Array.Empty<FileEntry>());
-        LocalPane = new FilePaneViewModel("本地文件", false, Array.Empty<FileEntry>());
+        LocalPane = new FilePaneViewModel("本地文件", false, Array.Empty<FileEntry>(), usesAbsolutePaths: true);
         Logs = new ObservableCollection<string>
         {
             FormatLog("工具界面已就绪")
@@ -197,8 +197,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         ProductionPane.CurrentPath = "/";
         DraftPane.CurrentPath = "/";
-        LocalPane.CurrentPath = "/";
-        RootSummary = $"服务器根目录：{config.ProductionServer.RootPath} | 本地：{config.LocalRootPath}";
+        RootSummary = $"服务器根目录：{config.ProductionServer.RootPath}";
     }
 
     public async Task RefreshFilePanesAsync(CancellationToken cancellationToken)
@@ -281,7 +280,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
 
         var paths = ParsePaths();
-        var result = await uploadService.RunAsync(paths, CancellationToken.None);
+        var result = await uploadService.RunAsync(paths, GetCurrentLocalRoot(), CancellationToken.None);
         AppendLogs(result.Logs);
         await RefreshFilePanesAsync(CancellationToken.None);
     }
@@ -295,7 +294,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
 
         var paths = ParsePaths();
-        var result = await checkService.RunAsync(paths, CancellationToken.None);
+        var result = await checkService.RunAsync(paths, GetCurrentLocalRoot(), CancellationToken.None);
         AppendLogs(result.Logs);
     }
 
@@ -342,23 +341,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void RefreshLocalPane()
     {
-        if (currentProcess is null)
-        {
-            LocalPane.ReplaceFiles(Array.Empty<FileEntry>());
-            return;
-        }
-
         try
         {
-            var root = Path.GetFullPath(Environment.ExpandEnvironmentVariables(currentProcess.LocalRootPath));
-            if (!Directory.Exists(root))
-            {
-                LocalPane.ReplaceFiles(Array.Empty<FileEntry>());
-                AddLog($"[Warning] 本地根目录不存在：{root}");
-                return;
-            }
-
-            var currentDirectory = ToLocalDirectoryPath(root, LocalPane.CurrentPath);
+            var currentDirectory = GetCurrentLocalRoot();
             if (!Directory.Exists(currentDirectory))
             {
                 LocalPane.ReplaceFiles(Array.Empty<FileEntry>());
@@ -369,15 +354,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var directories = Directory.EnumerateDirectories(currentDirectory)
                 .Select(directory =>
                 {
-                    var relative = Path.GetRelativePath(root, directory).Replace('\\', '/');
-                    return new FileEntry(RelativePath.Parse(relative), true, 0, Directory.GetLastWriteTimeUtc(directory));
+                    return new FileEntry(CreateLocalPaneEntryPath(directory), true, 0, Directory.GetLastWriteTimeUtc(directory));
                 });
             var files = Directory.EnumerateFiles(currentDirectory)
                 .Select(file =>
                 {
-                    var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
                     var info = new FileInfo(file);
-                    return new FileEntry(RelativePath.Parse(relative), false, info.Length, info.LastWriteTimeUtc);
+                    return new FileEntry(CreateLocalPaneEntryPath(file), false, info.Length, info.LastWriteTimeUtc);
                 });
             LocalPane.ReplaceFiles(directories.Concat(files));
         }
@@ -399,23 +382,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         return normalized.Length == 0 ? null : RelativePath.Parse(normalized);
     }
 
-    private static string ToLocalDirectoryPath(string root, string currentPath)
+    public string GetCurrentLocalRoot()
     {
-        var relative = FilePaneViewModel.NormalizePath(currentPath).Trim('/');
-        var fullPath = relative.Length == 0
-            ? Path.GetFullPath(root)
-            : Path.GetFullPath(Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar)));
-        var rootPath = Path.GetFullPath(root);
-        var rootWithSeparator = rootPath.EndsWith(Path.DirectorySeparatorChar)
-            ? rootPath
-            : rootPath + Path.DirectorySeparatorChar;
+        return Path.GetFullPath(Environment.ExpandEnvironmentVariables(LocalPane.CurrentPath));
+    }
 
-        if (!fullPath.Equals(rootPath, StringComparison.OrdinalIgnoreCase)
-            && !fullPath.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("本地路径超出根目录。");
-        }
-
-        return fullPath;
+    private static RelativePath CreateLocalPaneEntryPath(string path)
+    {
+        var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        return RelativePath.Parse(name);
     }
 }
