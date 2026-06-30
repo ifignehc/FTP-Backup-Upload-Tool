@@ -192,14 +192,20 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
             cancellationToken.ThrowIfCancellationRequested();
 
             var childPath = Combine(directory, name);
+            var fileEntry = await TryGetFileEntryByMetadataAsync(childPath, cancellationToken);
+            if (fileEntry is not null)
+            {
+                files.Add(fileEntry);
+                continue;
+            }
+
             if (await DirectoryExistsAsync(childPath, cancellationToken))
             {
                 await ListRecursiveAsync(childPath, files, visitedDirectories, cancellationToken);
                 continue;
             }
 
-            files.Add(await TryGetFileEntryByMetadataAsync(childPath, cancellationToken)
-                ?? new FileEntry(childPath, false, 0, null));
+            files.Add(new FileEntry(childPath, false, 0, null));
         }
     }
 
@@ -214,14 +220,20 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
             cancellationToken.ThrowIfCancellationRequested();
 
             var childPath = Combine(directory, name);
+            var fileEntry = await TryGetFileEntryByMetadataAsync(childPath, cancellationToken);
+            if (fileEntry is not null)
+            {
+                result.Add(fileEntry);
+                continue;
+            }
+
             if (await DirectoryExistsAsync(childPath, cancellationToken))
             {
                 result.Add(new FileEntry(childPath, true, 0, null));
                 continue;
             }
 
-            result.Add(await TryGetFileEntryByMetadataAsync(childPath, cancellationToken)
-                ?? new FileEntry(childPath, false, 0, null));
+            result.Add(new FileEntry(childPath, false, 0, null));
         }
 
         return result;

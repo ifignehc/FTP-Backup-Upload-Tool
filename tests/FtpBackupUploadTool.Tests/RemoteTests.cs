@@ -267,6 +267,19 @@ internal static class RemoteTests
         TestAssert.True(server.RootListCount == 1, "root should not be recursively listed while classifying a directory: " + server.CommandLog);
     }
 
+    public static void FtpClientUsesFileMetadataWhenNlstAcceptsFilePaths()
+    {
+        using var server = new NamesOnlyFtpServer(listFilePathAsName: true);
+        var client = new FtpRemoteFileClient("127.0.0.1", server.Port, "/", "user", "pass");
+
+        var entries = client.ListDirectoryAsync(null, CancellationToken.None).GetAwaiter().GetResult();
+        var file = entries.First(entry => entry.Path.Value == "readme.txt");
+
+        TestAssert.True(!file.IsDirectory, "NLST accepting a file path must not make the file look like a directory: " + server.CommandLog);
+        TestAssert.Equal(5L, file.Size, "file size should come from FTP metadata");
+        TestAssert.True(file.LastModified is not null, "file modified time should come from FTP metadata");
+    }
+
     private static RelativePath CreateRelativePath(string value)
     {
         var constructor = typeof(RelativePath).GetConstructor(
@@ -466,10 +479,12 @@ internal static class RemoteTests
         private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
         private readonly CancellationTokenSource _cts = new();
         private readonly List<string> _commands = new();
+        private readonly bool _listFilePathAsName;
         private readonly Task _serverTask;
 
-        public NamesOnlyFtpServer()
+        public NamesOnlyFtpServer(bool listFilePathAsName = false)
         {
+            _listFilePathAsName = listFilePathAsName;
             _listener.Start();
             Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
             _serverTask = Task.Run(AcceptLoop);
@@ -601,6 +616,10 @@ internal static class RemoteTests
                             else if (path == "/folder")
                             {
                                 await WriteDataAsync(writer, dataListener, Array.Empty<string>());
+                            }
+                            else if (_listFilePathAsName && path == "/readme.txt")
+                            {
+                                await WriteDataAsync(writer, dataListener, new[] { "readme.txt" });
                             }
                             else
                             {

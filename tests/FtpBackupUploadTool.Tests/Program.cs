@@ -60,6 +60,7 @@ var tests = new Action[]
     RemoteTests.FtpClientFallsBackToParentListingWhenSizeIsUnavailable,
     RemoteTests.FtpClientCanDisablePassiveModeForServersThatRequireActiveDataConnections,
     RemoteTests.FtpClientListsNamesWhenDetailedListFormatIsUnsupported,
+    RemoteTests.FtpClientUsesFileMetadataWhenNlstAcceptsFilePaths,
     BackupServiceTests.BackupDownloadsExistingAndLogsNewFile,
     BackupServiceTests.BackupLogFileUsesBackupFolderNameAndRecordsTimestamp,
     BackupServiceTests.BackupLogWriterHonorsSelectedFields,
