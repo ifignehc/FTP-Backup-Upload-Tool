@@ -19,31 +19,40 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
 
     private readonly FtpPath _path;
     private readonly NetworkCredential _credentials;
+    private readonly bool _usePassive;
 
-    public FtpRemoteFileClient(string host, int port, string root, string userName, string password)
-        : this(new FtpPath(host, port, root), new NetworkCredential(userName, password))
+    public FtpRemoteFileClient(string host, int port, string root, string userName, string password, bool usePassive = true)
+        : this(new FtpPath(host, port, root), new NetworkCredential(userName, password), usePassive)
     {
     }
 
-    public FtpRemoteFileClient(FtpPath path, NetworkCredential credentials)
+    public FtpRemoteFileClient(FtpPath path, NetworkCredential credentials, bool usePassive = true)
     {
         _path = path;
         _credentials = credentials;
+        _usePassive = usePassive;
     }
 
     public async Task<IReadOnlyList<FileEntry>> ListDirectoryAsync(RelativePath? directory, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var entries = await TryListDirectoryDetailsAsync(directory, cancellationToken);
-        if (entries is not null)
+        try
         {
-            return entries
-                .Select(entry => new FileEntry(Combine(directory, entry.Name), entry.IsDirectory, entry.Size, entry.LastModified))
-                .ToArray();
-        }
+            var entries = await TryListDirectoryDetailsAsync(directory, cancellationToken);
+            if (entries is not null)
+            {
+                return entries
+                    .Select(entry => new FileEntry(Combine(directory, entry.Name), entry.IsDirectory, entry.Size, entry.LastModified))
+                    .ToArray();
+            }
 
-        return await ListDirectoryByNamesAsync(directory, cancellationToken);
+            return await ListDirectoryByNamesAsync(directory, cancellationToken);
+        }
+        catch (WebException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw CreateDirectoryListException(directory, ex);
+        }
     }
 
     public async Task<IReadOnlyList<FileEntry>> ListRecursiveAsync(CancellationToken cancellationToken)
@@ -340,8 +349,19 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
         request.Method = method;
         request.Credentials = _credentials;
         request.UseBinary = true;
+        request.UsePassive = _usePassive;
         request.KeepAlive = false;
         return request;
+    }
+
+    private InvalidOperationException CreateDirectoryListException(RelativePath? directory, WebException exception)
+    {
+        var uri = _path.For(directory);
+        var mode = _usePassive ? "Passive" : "Active";
+        var details = exception.Response is FtpWebResponse response
+            ? $"{response.StatusCode} {response.StatusDescription}".Trim()
+            : exception.Status.ToString();
+        return new InvalidOperationException($"FTP list failed for {uri} ({mode} mode): {details}", exception);
     }
 
     private async Task ReplaceRemoteFileAsync(RelativePath tempPath, RelativePath finalPath)

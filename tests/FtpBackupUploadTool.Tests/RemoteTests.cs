@@ -238,6 +238,23 @@ internal static class RemoteTests
         TestAssert.Equal(42L, entry!.Size, "listed file size should be used");
     }
 
+    public static void FtpClientCanDisablePassiveModeForServersThatRequireActiveDataConnections()
+    {
+        var client = new FtpRemoteFileClient("172.27.3.41", 21, "/", "user", "pass", usePassive: false);
+        var createRequest = typeof(FtpRemoteFileClient).GetMethod(
+            "CreateRequest",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        TestAssert.True(createRequest is not null, "CreateRequest should exist");
+
+        var request = (FtpWebRequest)createRequest!.Invoke(
+            client,
+            new object?[] { null, WebRequestMethods.Ftp.ListDirectory })!;
+
+        TestAssert.True(!request.UsePassive, "client should be able to use active FTP mode for directory listings");
+        TestAssert.Equal("172.27.3.41", request.RequestUri.Host, "request URI should still target the configured server");
+        TestAssert.Equal("/", request.RequestUri.AbsolutePath, "request URI should still target the configured server root");
+    }
+
     private static RelativePath CreateRelativePath(string value)
     {
         var constructor = typeof(RelativePath).GetConstructor(

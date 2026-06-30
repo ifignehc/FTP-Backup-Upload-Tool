@@ -130,6 +130,27 @@ internal static class SettingsViewModelTests
         TestAssert.Equal("prod-b", viewModel.ProductionHost, "remaining process fields should load");
     }
 
+    public static void BuildsAndLoadsActiveFtpModeSettings()
+    {
+        var viewModel = new SettingsViewModel
+        {
+            ProductionUsePassive = false,
+            DraftUsePassive = false
+        };
+
+        var saved = viewModel.BuildProcessConfig(new TestPasswordProtector(), "prod-secret", "draft-secret");
+
+        TestAssert.True(!saved.ProductionServer.UsePassive, "production server should save active FTP mode");
+        TestAssert.True(!saved.DraftServer.UsePassive, "draft server should save active FTP mode");
+
+        viewModel.ProductionUsePassive = true;
+        viewModel.DraftUsePassive = true;
+        viewModel.LoadProcess(saved);
+
+        TestAssert.True(!viewModel.ProductionUsePassive, "production active FTP mode should load into settings");
+        TestAssert.True(!viewModel.DraftUsePassive, "draft active FTP mode should load into settings");
+    }
+
     private static ProcessConfig CreateProcess(
         string name,
         string productionHost,

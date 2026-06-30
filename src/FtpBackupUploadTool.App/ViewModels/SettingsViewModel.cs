@@ -19,11 +19,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private string productionAccount = "prod_user";
     private string productionPasswordHint = "未保存密码，请输入";
     private bool rememberProductionPassword;
+    private bool productionUsePassive = true;
     private string draftHost = "192.168.1.20";
     private string draftPort = "21";
     private string draftAccount = "draft_user";
     private string draftPasswordHint = "未保存密码，请输入";
     private bool rememberDraftPassword;
+    private bool draftUsePassive = true;
     private string serverRoot = "/www/project";
     private string localRoot = @"D:\Release\project";
     private string backupDirectory = @"%USERPROFILE%\Desktop";
@@ -106,6 +108,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         set => SetProperty(ref rememberProductionPassword, value, nameof(RememberProductionPassword));
     }
 
+    public bool ProductionUsePassive
+    {
+        get => productionUsePassive;
+        set => SetProperty(ref productionUsePassive, value, nameof(ProductionUsePassive));
+    }
+
     public string DraftHost
     {
         get => draftHost;
@@ -134,6 +142,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         get => rememberDraftPassword;
         set => SetProperty(ref rememberDraftPassword, value, nameof(RememberDraftPassword));
+    }
+
+    public bool DraftUsePassive
+    {
+        get => draftUsePassive;
+        set => SetProperty(ref draftUsePassive, value, nameof(DraftUsePassive));
     }
 
     public string ServerRoot
@@ -219,11 +233,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         ProductionAccount = config.ProductionServer.UserName;
         ProductionPasswordHint = GetPasswordHint(config.ProductionServer.EncryptedPassword);
         RememberProductionPassword = HasSavedPassword(config.ProductionServer.EncryptedPassword);
+        ProductionUsePassive = config.ProductionServer.UsePassive;
         DraftHost = config.DraftServer.Host;
         DraftPort = config.DraftServer.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
         DraftAccount = config.DraftServer.UserName;
         DraftPasswordHint = GetPasswordHint(config.DraftServer.EncryptedPassword);
         RememberDraftPassword = HasSavedPassword(config.DraftServer.EncryptedPassword);
+        DraftUsePassive = config.DraftServer.UsePassive;
         ServerRoot = config.ProductionServer.RootPath;
         LocalRoot = config.LocalRootPath;
         BackupDirectory = config.Backup.BackupDirectory;
@@ -336,13 +352,15 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 productionPortNumber,
                 RequireText(ProductionAccount, "生产服务器账号"),
                 productionEncryptedPassword,
-                RequireText(ServerRoot, "服务器根目录")),
+                RequireText(ServerRoot, "服务器根目录"),
+                ProductionUsePassive),
             new ServerConfig(
                 RequireText(DraftHost, "起案服务器 IP / 域名"),
                 draftPortNumber,
                 RequireText(DraftAccount, "起案服务器账号"),
                 draftEncryptedPassword,
-                RequireText(ServerRoot, "服务器根目录")),
+                RequireText(ServerRoot, "服务器根目录"),
+                DraftUsePassive),
             RequireText(LocalRoot, "本地根目录"),
             existingProcess?.DefaultPathListFile ?? string.Empty,
             new BackupConfig(
@@ -388,11 +406,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         ProductionAccount = "prod_user";
         ProductionPasswordHint = GetPasswordHint(string.Empty);
         RememberProductionPassword = false;
+        ProductionUsePassive = true;
         DraftHost = "192.168.1.20";
         DraftPort = "21";
         DraftAccount = "draft_user";
         DraftPasswordHint = GetPasswordHint(string.Empty);
         RememberDraftPassword = false;
+        DraftUsePassive = true;
         ServerRoot = "/www/project";
         LocalRoot = @"D:\Release\project";
         BackupDirectory = @"%USERPROFILE%\Desktop";

@@ -27,13 +27,15 @@ public sealed class ProcessRuntimeFactory
             config.ProductionServer.Port,
             config.ProductionServer.RootPath,
             config.ProductionServer.UserName,
-            productionPassword);
+            productionPassword,
+            config.ProductionServer.UsePassive);
         var draft = new FtpRemoteFileClient(
             config.DraftServer.Host,
             config.DraftServer.Port,
             config.DraftServer.RootPath,
             config.DraftServer.UserName,
-            draftPassword);
+            draftPassword,
+            config.DraftServer.UsePassive);
 
         return new WorkflowServices(
             new BackupService(production, new BackupLogWriter()),

@@ -1,6 +1,12 @@
 namespace FtpBackupUploadTool.Core.Models;
 
-public sealed record ServerConfig(string Host, int Port, string UserName, string EncryptedPassword, string RootPath);
+public sealed record ServerConfig(
+    string Host,
+    int Port,
+    string UserName,
+    string EncryptedPassword,
+    string RootPath,
+    bool UsePassive = true);
 
 public sealed record BackupConfig(string BackupDirectory, string FolderNameTemplate, LogFieldOptions LogFields);
 

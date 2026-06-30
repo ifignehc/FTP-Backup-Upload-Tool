@@ -48,6 +48,51 @@ internal static class ConfigTests
         TestAssert.Equal("prod", loaded.Processes[0].ProductionServer.Host, "host should round trip");
     }
 
+    public static void LoadingLegacyConfigDefaultsFtpServersToPassiveMode()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "ftp-tool-config", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var configPath = Path.Combine(dir, "appsettings.json");
+        File.WriteAllText(
+            configPath,
+            """
+            {
+              "processes": [
+                {
+                  "name": "legacy",
+                  "productionServer": {
+                    "host": "prod",
+                    "port": 21,
+                    "userName": "prod_user",
+                    "encryptedPassword": "enc1",
+                    "rootPath": "/www/project"
+                  },
+                  "draftServer": {
+                    "host": "draft",
+                    "port": 21,
+                    "userName": "draft_user",
+                    "encryptedPassword": "enc2",
+                    "rootPath": "/www/project"
+                  },
+                  "localRootPath": "D:\\Release\\project",
+                  "defaultPathListFile": "",
+                  "backup": {
+                    "backupDirectory": "%USERPROFILE%\\Desktop",
+                    "folderNameTemplate": "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup",
+                    "logFields": 511
+                  }
+                }
+              ]
+            }
+            """);
+        var store = new AppConfigStore(configPath);
+
+        var loaded = store.LoadAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+        TestAssert.True(loaded.Processes[0].ProductionServer.UsePassive, "legacy production server should default to passive mode");
+        TestAssert.True(loaded.Processes[0].DraftServer.UsePassive, "legacy draft server should default to passive mode");
+    }
+
     public static void CanceledSavePreservesExistingConfig()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ftp-tool-config", Guid.NewGuid().ToString("N"));
