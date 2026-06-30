@@ -171,6 +171,47 @@ internal static class SettingsViewModelTests
         TestAssert.True(!viewModel.DraftUsePassive, "draft active FTP mode should load into settings");
     }
 
+    public static void BuildsAndLoadsCheckLogSettings()
+    {
+        var existing = CreateProcess(
+            "常规更新",
+            "prod-a",
+            "draft-a",
+            "enc-prod-a",
+            "enc-draft-a") with
+        {
+            CheckLog = new CheckLogConfig(@"D:\CheckLogs", "{yyyy}{MM}{dd}_{HH}{mm}{ss}_检查")
+        };
+        var viewModel = new SettingsViewModel();
+
+        viewModel.LoadProcesses(new[] { existing }, "常规更新");
+
+        TestAssert.Equal(@"D:\CheckLogs", viewModel.CheckLogDirectory, "check log directory should load");
+        TestAssert.Equal("{yyyy}{MM}{dd}_{HH}{mm}{ss}_检查", viewModel.CheckLogTemplate, "check log template should load");
+
+        viewModel.CheckLogDirectory = @"E:\Reports";
+        viewModel.CheckLogTemplate = "{yyyy}{MM}{dd}_Check";
+        var saved = viewModel.BuildProcessConfig(new TestPasswordProtector(), string.Empty, string.Empty, existing);
+
+        TestAssert.Equal(@"E:\Reports", saved.CheckLog.LogDirectory, "check log directory should save");
+        TestAssert.Equal("{yyyy}{MM}{dd}_Check", saved.CheckLog.FileNameTemplate, "check log template should save");
+    }
+
+    public static void NewProcessResetsCheckLogSettingsToDefaults()
+    {
+        var existing = CreateProcess("test", "prod-a", "draft-a", "enc-prod-a", "enc-draft-a") with
+        {
+            CheckLog = new CheckLogConfig(@"D:\CheckLogs", "CustomCheck")
+        };
+        var viewModel = new SettingsViewModel();
+        viewModel.LoadProcesses(new[] { existing }, "test");
+
+        viewModel.AddProcess();
+
+        TestAssert.Equal(@"%USERPROFILE%\Desktop", viewModel.CheckLogDirectory, "new draft should reset check log directory to default");
+        TestAssert.Equal("{yyyy}{MM}{dd}_{HH}{mm}{ss}_Check", viewModel.CheckLogTemplate, "new draft should reset check log template to default");
+    }
+
     public static void SettingsWindowDoesNotExposeLocalRootBinding()
     {
         var xamlPath = FindRepositoryFile("src", "FtpBackupUploadTool.App", "Views", "SettingsWindow.xaml");

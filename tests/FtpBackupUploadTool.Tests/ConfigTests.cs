@@ -91,6 +91,8 @@ internal static class ConfigTests
 
         TestAssert.True(loaded.Processes[0].ProductionServer.UsePassive, "legacy production server should default to passive mode");
         TestAssert.True(loaded.Processes[0].DraftServer.UsePassive, "legacy draft server should default to passive mode");
+        TestAssert.Equal("%USERPROFILE%\\Desktop", loaded.Processes[0].CheckLog.LogDirectory, "legacy check log directory should default to desktop");
+        TestAssert.Equal("{yyyy}{MM}{dd}_{HH}{mm}{ss}_Check", loaded.Processes[0].CheckLog.FileNameTemplate, "legacy check log template should default to timestamped check name");
     }
 
     public static void CanceledSavePreservesExistingConfig()

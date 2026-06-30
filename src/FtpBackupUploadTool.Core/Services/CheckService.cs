@@ -1,3 +1,4 @@
+using FtpBackupUploadTool.Core.Logging;
 using FtpBackupUploadTool.Core.Formatting;
 using FtpBackupUploadTool.Core.Models;
 using FtpBackupUploadTool.Core.Paths;
@@ -5,7 +6,7 @@ using FtpBackupUploadTool.Core.Remote;
 
 namespace FtpBackupUploadTool.Core.Services;
 
-public sealed record CheckRunResult(IReadOnlyList<OperationLogEntry> Logs);
+public sealed record CheckRunResult(IReadOnlyList<OperationLogEntry> Logs, IReadOnlyList<CheckLogRow> Rows);
 
 public sealed class CheckService
 {
@@ -37,6 +38,7 @@ public sealed class CheckService
         var uniquePaths = GetUniquePaths(paths);
         var pathListSet = new HashSet<string>(uniquePaths.Select(path => path.Value), StringComparer.OrdinalIgnoreCase);
         var logs = new List<OperationLogEntry>();
+        var rows = new List<CheckLogRow>();
 
         foreach (var path in uniquePaths)
         {
@@ -45,12 +47,14 @@ public sealed class CheckService
             var draftEntry = await _draft.GetFileEntryAsync(path, cancellationToken);
             if (draftEntry is not null && !draftEntry.IsDirectory)
             {
+                var message = $"文件更新：起案服务器中已上传路径 {path.Value} 对应的文件，修改日期：{FormatLastModified(draftEntry.LastModified)}";
                 logs.Add(new OperationLogEntry(
                     DateTimeOffset.Now,
                     OperationLogLevel.Normal,
                     Operation,
                     path,
-                    $"文件更新：起案服务器中已上传路径 {path.Value} 对应的文件，修改日期：{FormatLastModified(draftEntry.LastModified)}"));
+                    message));
+                rows.Add(new CheckLogRow(path, OperationLogLevel.Normal, draftEntry.LastModified, message));
                 continue;
             }
 
@@ -58,21 +62,25 @@ public sealed class CheckService
             var existsInProduction = await _production.FileExistsAsync(path, cancellationToken);
             if (existsInProduction)
             {
+                var message = $"新路径旧文件：路径 {path.Value} 本次没有更新，但是生产服务器有文件。";
                 logs.Add(new OperationLogEntry(
                     DateTimeOffset.Now,
                     OperationLogLevel.Warning,
                     Operation,
                     path,
-                    $"新路径旧文件：路径 {path.Value} 本次没有更新，但是生产服务器有文件。"));
+                    message));
+                rows.Add(new CheckLogRow(path, OperationLogLevel.Warning, null, message));
             }
             else
             {
+                var message = $"文件缺失：路径 {path.Value} 对应文件缺失，起案服务器和生产服务器均没有对应文件。";
                 logs.Add(new OperationLogEntry(
                     DateTimeOffset.Now,
                     OperationLogLevel.Error,
                     Operation,
                     path,
-                    $"文件缺失：路径 {path.Value} 对应文件缺失，起案服务器和生产服务器均没有对应文件。"));
+                    message));
+                rows.Add(new CheckLogRow(path, OperationLogLevel.Error, null, message));
             }
         }
 
@@ -84,15 +92,17 @@ public sealed class CheckService
                 continue;
             }
 
+            var message = $"路径缺失：本地文件 {localPath.Value} 没有写入路径清单。";
             logs.Add(new OperationLogEntry(
                 DateTimeOffset.Now,
                 OperationLogLevel.Error,
                 Operation,
                 localPath,
-                $"路径缺失：本地文件 {localPath.Value} 没有写入路径清单。"));
+                message));
+            rows.Add(new CheckLogRow(localPath, OperationLogLevel.Error, null, message));
         }
 
-        return new CheckRunResult(logs);
+        return new CheckRunResult(logs, rows);
     }
 
     private static IEnumerable<RelativePath> GetLocalFilePaths(string? localRootPath, CancellationToken cancellationToken)

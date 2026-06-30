@@ -4,6 +4,7 @@ using System.IO;
 using System.Windows.Input;
 using FtpBackupUploadTool.App.Commands;
 using FtpBackupUploadTool.App.Runtime;
+using FtpBackupUploadTool.Core.Logging;
 using FtpBackupUploadTool.Core.Models;
 using FtpBackupUploadTool.Core.Paths;
 using FtpBackupUploadTool.Core.Remote;
@@ -16,6 +17,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private BackupService backupService;
     private UploadService uploadService;
     private CheckService checkService;
+    private readonly CheckLogWriter checkLogWriter = new();
     private ProcessConfig? currentProcess;
     private WorkflowServices? currentServices;
     private string pathListText = string.Empty;
@@ -296,6 +298,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
         var paths = ParsePaths();
         var result = await checkService.RunAsync(paths, GetCurrentLocalRoot(), CancellationToken.None);
         AppendLogs(result.Logs);
+        var logPath = await checkLogWriter.WriteAsync(
+            currentProcess.CheckLog.LogDirectory,
+            currentProcess.CheckLog.FileNameTemplate,
+            result.Rows,
+            CancellationToken.None);
+        AddLog($"检查日志已保存：{logPath}");
     }
 
     private void AppendLogs(IReadOnlyList<OperationLogEntry> entries)

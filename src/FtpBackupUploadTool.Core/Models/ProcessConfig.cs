@@ -10,6 +10,14 @@ public sealed record ServerConfig(
 
 public sealed record BackupConfig(string BackupDirectory, string FolderNameTemplate, LogFieldOptions LogFields);
 
+public sealed record CheckLogConfig(string LogDirectory, string FileNameTemplate)
+{
+    public const string DefaultLogDirectory = @"%USERPROFILE%\Desktop";
+    public const string DefaultFileNameTemplate = "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Check";
+
+    public static CheckLogConfig Default { get; } = new(DefaultLogDirectory, DefaultFileNameTemplate);
+}
+
 [Flags]
 public enum LogFieldOptions
 {
@@ -32,4 +40,8 @@ public sealed record ProcessConfig(
     ServerConfig DraftServer,
     string LocalRootPath,
     string DefaultPathListFile,
-    BackupConfig Backup);
+    BackupConfig Backup,
+    CheckLogConfig? CheckLog = null)
+{
+    public CheckLogConfig CheckLog { get; init; } = CheckLog ?? CheckLogConfig.Default;
+}

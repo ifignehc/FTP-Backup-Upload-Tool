@@ -29,6 +29,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private string serverRoot = "/www/project";
     private string backupDirectory = @"%USERPROFILE%\Desktop";
     private string backupTemplate = "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup";
+    private string checkLogDirectory = CheckLogConfig.DefaultLogDirectory;
+    private string checkLogTemplate = CheckLogConfig.DefaultFileNameTemplate;
 
     public SettingsViewModel()
     {
@@ -167,6 +169,18 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         set => SetProperty(ref backupTemplate, value, nameof(BackupTemplate));
     }
 
+    public string CheckLogDirectory
+    {
+        get => checkLogDirectory;
+        set => SetProperty(ref checkLogDirectory, value, nameof(CheckLogDirectory));
+    }
+
+    public string CheckLogTemplate
+    {
+        get => checkLogTemplate;
+        set => SetProperty(ref checkLogTemplate, value, nameof(CheckLogTemplate));
+    }
+
     public ObservableCollection<LogFieldItem> LogFields { get; }
 
     public void LoadProcesses(IEnumerable<ProcessConfig> configs, string? selectedName)
@@ -236,6 +250,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         ServerRoot = config.ProductionServer.RootPath;
         BackupDirectory = config.Backup.BackupDirectory;
         BackupTemplate = config.Backup.FolderNameTemplate;
+        CheckLogDirectory = config.CheckLog.LogDirectory;
+        CheckLogTemplate = config.CheckLog.FileNameTemplate;
 
         foreach (var field in LogFields)
         {
@@ -358,7 +374,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             new BackupConfig(
                 RequireText(BackupDirectory, "备份保存目录"),
                 RequireText(BackupTemplate, "备份文件夹命名模板"),
-                SelectedLogFields()));
+                SelectedLogFields()),
+            new CheckLogConfig(
+                RequireText(CheckLogDirectory, "检查日志保存目录"),
+                RequireText(CheckLogTemplate, "检查日志命名模板")));
     }
 
     public string GetProductionPasswordForDisplay(IPasswordProtector passwordProtector)
@@ -408,6 +427,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         ServerRoot = "/www/project";
         BackupDirectory = @"%USERPROFILE%\Desktop";
         BackupTemplate = "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Backup";
+        CheckLogDirectory = CheckLogConfig.DefaultLogDirectory;
+        CheckLogTemplate = CheckLogConfig.DefaultFileNameTemplate;
 
         foreach (var field in LogFields)
         {

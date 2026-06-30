@@ -149,7 +149,7 @@
                         </Grid>
                     </GroupBox>
 
-                    <GroupBox Header="根目录与备份" Margin="0,0,0,10">
+                    <GroupBox Header="根目录、备份与检查日志" Margin="0,0,0,10">
                         <Grid Margin="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="140" />
@@ -159,14 +159,20 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
                             <TextBlock Text="服务器根目录" VerticalAlignment="Center" Margin="0,0,0,8" />
                             <TextBox Grid.Column="1" Text="{Binding ServerRoot}" Padding="8,6" Margin="0,0,0,8" />
                             <TextBlock Grid.Row="1" Text="备份保存目录" VerticalAlignment="Center" Margin="0,0,0,8" />
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding BackupDirectory}" Padding="8,6" Margin="0,0,0,8" />
-                            <TextBlock Grid.Row="2" Text="备份文件夹命名模板" VerticalAlignment="Center" />
-                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding BackupTemplate}" Padding="8,6" />
+                            <TextBlock Grid.Row="2" Text="备份文件夹命名模板" VerticalAlignment="Center" Margin="0,0,0,8" />
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding BackupTemplate}" Padding="8,6" Margin="0,0,0,8" />
+                            <TextBlock Grid.Row="3" Text="检查日志保存目录" VerticalAlignment="Center" Margin="0,0,0,8" />
+                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CheckLogDirectory}" Padding="8,6" Margin="0,0,0,8" />
+                            <TextBlock Grid.Row="4" Text="检查日志命名模板" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding CheckLogTemplate}" Padding="8,6" />
                         </Grid>
                     </GroupBox>
 
