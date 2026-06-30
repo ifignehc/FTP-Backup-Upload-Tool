@@ -7,6 +7,28 @@ namespace FtpBackupUploadTool.Tests;
 
 internal static class CheckServiceTests
 {
+    public static void CheckDoesNotRecursivelyListDraftServer()
+    {
+        var production = new GuardedRemoteClient(existingFiles: new[] { "css/old.css" });
+        var draft = new GuardedRemoteClient(existingFiles: new[] { "css/site.css" });
+        var service = new CheckService(production, draft);
+        var paths = new[]
+        {
+            RelativePath.Parse("css/site.css"),
+            RelativePath.Parse("css/old.css"),
+            RelativePath.Parse("docs/missing.txt")
+        };
+
+        var result = service.RunAsync(paths, CancellationToken.None).GetAwaiter().GetResult();
+
+        TestAssert.Equal(3, result.Logs.Count, "check should only emit logs for paths in the list");
+        TestAssert.Equal(3, draft.FileExistsCalls, "draft server should be probed once per unique path");
+        TestAssert.Equal(2, production.FileExistsCalls, "production server should only be probed when draft is missing");
+        AssertLog(result.Logs, "css/site.css", OperationLogLevel.Normal, string.Empty);
+        AssertLog(result.Logs, "css/old.css", OperationLogLevel.Warning, string.Empty);
+        AssertLog(result.Logs, "docs/missing.txt", OperationLogLevel.Error, string.Empty);
+    }
+
     public static void CheckIgnoresDraftFilesThatAreNotInPathList()
     {
         var draftRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-check-draft", Guid.NewGuid().ToString("N"));
@@ -78,5 +100,59 @@ internal static class CheckServiceTests
     {
         var log = logs.SingleOrDefault(entry => entry.Path?.Value.Equals(path, StringComparison.OrdinalIgnoreCase) == true);
         TestAssert.True(log is null, $"expected no log for {path}");
+    }
+
+    private sealed class GuardedRemoteClient : IRemoteFileClient
+    {
+        private readonly HashSet<string> existingFiles;
+
+        public GuardedRemoteClient(IEnumerable<string> existingFiles)
+        {
+            this.existingFiles = new HashSet<string>(existingFiles, StringComparer.OrdinalIgnoreCase);
+        }
+
+        public int FileExistsCalls { get; private set; }
+
+        public Task<IReadOnlyList<FileEntry>> ListDirectoryAsync(RelativePath? directory, CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("Check should not list directories.");
+        }
+
+        public Task<IReadOnlyList<FileEntry>> ListRecursiveAsync(CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("Check should not recursively list the server.");
+        }
+
+        public Task<bool> FileExistsAsync(RelativePath path, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            FileExistsCalls++;
+            return Task.FromResult(existingFiles.Contains(path.Value));
+        }
+
+        public Task<bool> DirectoryExistsAsync(RelativePath path, CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("Check should not inspect directories.");
+        }
+
+        public Task<FileEntry?> GetFileEntryAsync(RelativePath path, CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("Check should not read file entries.");
+        }
+
+        public Task DownloadAsync(RelativePath path, Stream destination, CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("Check should not download files.");
+        }
+
+        public Task UploadAsync(RelativePath path, Stream source, CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("Check should not upload files.");
+        }
+
+        public Task DeleteFileAsync(RelativePath path, CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("Check should not delete files.");
+        }
     }
 }

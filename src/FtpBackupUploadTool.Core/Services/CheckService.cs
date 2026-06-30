@@ -23,21 +23,14 @@ public sealed class CheckService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var draftEntries = await _draft.ListRecursiveAsync(cancellationToken);
-        cancellationToken.ThrowIfCancellationRequested();
-
         var uniquePaths = GetUniquePaths(paths);
-        var draftFilePaths = new HashSet<string>(
-            draftEntries.Where(entry => !entry.IsDirectory).Select(entry => entry.Path.Value),
-            StringComparer.OrdinalIgnoreCase);
-
         var logs = new List<OperationLogEntry>();
 
         foreach (var path in uniquePaths)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (draftFilePaths.Contains(path.Value))
+            if (await _draft.FileExistsAsync(path, cancellationToken))
             {
                 logs.Add(new OperationLogEntry(
                     DateTimeOffset.Now,

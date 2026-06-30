@@ -62,6 +62,7 @@ var tests = new Action[]
     BackupServiceTests.AlreadyCanceledBackupDoesNotCreateBackupFolder,
     BackupServiceTests.BackupLogWriterCanceledBeforeReplacementPreservesExistingLog,
     BackupServiceTests.CanceledBackupDoesNotCreatePartialFile,
+    CheckServiceTests.CheckDoesNotRecursivelyListDraftServer,
     CheckServiceTests.CheckIgnoresDraftFilesThatAreNotInPathList,
     CheckServiceTests.CheckTreatsDuplicatePathsCaseInsensitively,
     UploadServiceTests.UploadCopiesLocalFileToDraft,
