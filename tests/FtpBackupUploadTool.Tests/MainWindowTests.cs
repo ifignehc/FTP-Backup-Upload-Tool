@@ -43,6 +43,28 @@ internal static class MainWindowTests
             "Ctrl+V should paste files into the active pane");
     }
 
+    public static void LocalCopyTargetMessagesNameBackupPaneSeparately()
+    {
+        var paneKindType = typeof(MainWindow).Assembly.GetType("FtpBackupUploadTool.App.FilePaneKind");
+        TestAssert.True(paneKindType is not null, "FilePaneKind should exist");
+        var filePaneKindType = paneKindType!;
+        var localPane = Enum.Parse(filePaneKindType, "Local");
+        var backupPane = Enum.Parse(filePaneKindType, "Backup");
+        var method = typeof(MainWindow).GetMethod(
+            "GetLocalCopyTargetMessage",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
+        TestAssert.True(method is not null, "copy log target message helper should exist");
+        TestAssert.Equal(
+            "已复制到本地窗口",
+            (string)method!.Invoke(null, new[] { localPane })!,
+            "copying into the local pane should keep the local-window log message");
+        TestAssert.Equal(
+            "已复制到备份 / 对照窗口",
+            (string)method.Invoke(null, new[] { backupPane })!,
+            "copying into the backup pane should name the backup/compare window in the log");
+    }
+
     private static string FindRepositoryFile(params string[] relativeParts)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

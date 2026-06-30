@@ -304,7 +304,7 @@ public partial class MainWindow : Window
                 }
                 else if (IsLocalFilePane(target))
                 {
-                    await CopyToLocalAsync(GetLocalRoot(target), services, source, file.Path, destinationPath);
+                    await CopyToLocalAsync(GetLocalRoot(target), services, source, target, file.Path, destinationPath);
                 }
             }
 
@@ -349,6 +349,7 @@ public partial class MainWindow : Window
         string targetLocalRoot,
         WorkflowServices services,
         FilePaneKind source,
+        FilePaneKind target,
         RelativePath sourcePath,
         RelativePath destinationPath)
     {
@@ -357,12 +358,22 @@ public partial class MainWindow : Window
         if (IsLocalFilePane(source))
         {
             File.Copy(ToLocalPath(GetLocalRoot(source), sourcePath), destination, overwrite: true);
-            viewModel.AddLog($"[Normal] Copy {FormatCopyPath(sourcePath, destinationPath)}: 已复制到本地窗口");
+            viewModel.AddLog($"[Normal] Copy {FormatCopyPath(sourcePath, destinationPath)}: {GetLocalCopyTargetMessage(target)}");
             return;
         }
 
         await DownloadToLocalFileAsync(GetRemoteClient(services, source), sourcePath, destination);
-        viewModel.AddLog($"[Normal] Copy {FormatCopyPath(sourcePath, destinationPath)}: 已复制到本地");
+        viewModel.AddLog($"[Normal] Copy {FormatCopyPath(sourcePath, destinationPath)}: {GetLocalCopyTargetMessage(target)}");
+    }
+
+    private static string GetLocalCopyTargetMessage(FilePaneKind target)
+    {
+        return target switch
+        {
+            FilePaneKind.Local => "已复制到本地窗口",
+            FilePaneKind.Backup => "已复制到备份 / 对照窗口",
+            _ => throw new InvalidOperationException("目标面板不是本地类文件窗口。")
+        };
     }
 
     private static async Task CopyRemoteToDraftAsync(
