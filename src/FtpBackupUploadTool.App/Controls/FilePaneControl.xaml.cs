@@ -25,13 +25,35 @@ public partial class FilePaneControl : UserControl
 
     public event EventHandler? PathRefreshRequested;
 
+    public event EventHandler? PaneActivated;
+
     private bool IsPaneReadOnly => DataContext is FilePaneViewModel viewModel && viewModel.IsReadOnly;
 
     private IReadOnlyList<FileEntry> SelectedFiles =>
         fileListView.SelectedItems.OfType<FileEntry>().ToArray();
 
-    private IReadOnlyList<FileEntry> SelectedRegularFiles =>
+    public IReadOnlyList<FileEntry> SelectedRegularFiles =>
         SelectedFiles.Where(file => !file.IsDirectory).ToArray();
+
+    public void CopySelectedFiles()
+    {
+        OnCopyClicked(this, new RoutedEventArgs());
+    }
+
+    public void PasteFiles()
+    {
+        OnPasteClicked(this, new RoutedEventArgs());
+    }
+
+    public void DeleteSelectedFiles()
+    {
+        OnDeleteClicked(this, new RoutedEventArgs());
+    }
+
+    public void RefreshFiles()
+    {
+        RefreshPath();
+    }
 
     private void OnContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
@@ -135,6 +157,11 @@ public partial class FilePaneControl : UserControl
         RefreshPath();
     }
 
+    private void OnRefreshClicked(object sender, RoutedEventArgs e)
+    {
+        RefreshPath();
+    }
+
     private void OnUpClicked(object sender, RoutedEventArgs e)
     {
         if (DataContext is not FilePaneViewModel viewModel)
@@ -185,6 +212,11 @@ public partial class FilePaneControl : UserControl
 
         e.Effects = DragDropEffects.Copy;
         FilesDropped?.Invoke(this, new FilePaneDropEventArgs(sourcePane, files));
+    }
+
+    private void OnPaneActivated(object sender, RoutedEventArgs e)
+    {
+        PaneActivated?.Invoke(this, EventArgs.Empty);
     }
 
     private static bool TryGetDroppedFiles(

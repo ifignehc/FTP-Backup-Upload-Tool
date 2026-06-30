@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private readonly DpapiPasswordProtector passwordProtector = new();
     private readonly MainViewModel viewModel;
     private FilePaneClipboard? filePaneClipboard;
+    private FilePaneControl? activeFilePane;
 
     public MainWindow()
     {
@@ -118,6 +119,51 @@ public partial class MainWindow : Window
         await viewModel.RefreshFilePanesAsync(CancellationToken.None);
     }
 
+    private void OnFilePaneActivated(object sender, EventArgs e)
+    {
+        if (sender is not FilePaneControl pane || ReferenceEquals(activeFilePane, pane))
+        {
+            return;
+        }
+
+        activeFilePane = pane;
+    }
+
+    private async void OnWindowKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        var shortcut = MainWindowShortcutMapper.Resolve(e.Key, System.Windows.Input.Keyboard.Modifiers);
+        if (shortcut == WindowShortcutAction.Copy)
+        {
+            activeFilePane?.CopySelectedFiles();
+            e.Handled = true;
+        }
+        else if (shortcut == WindowShortcutAction.Paste)
+        {
+            activeFilePane?.PasteFiles();
+            e.Handled = true;
+        }
+        else if (shortcut == WindowShortcutAction.Delete)
+        {
+            DeleteFromActivePane();
+            e.Handled = true;
+        }
+        else if (shortcut == WindowShortcutAction.Refresh)
+        {
+            await viewModel.RefreshFilePanesAsync(CancellationToken.None);
+            e.Handled = true;
+        }
+    }
+
+    private void OnFunctionDeleteClicked(object sender, RoutedEventArgs e)
+    {
+        DeleteFromActivePane();
+    }
+
+    private async void OnFunctionRefreshClicked(object sender, RoutedEventArgs e)
+    {
+        await viewModel.RefreshFilePanesAsync(CancellationToken.None);
+    }
+
     private async Task LoadProcessRuntimeAsync(ProcessConfig process)
     {
         var factory = new ProcessRuntimeFactory(passwordProtector);
@@ -197,6 +243,11 @@ public partial class MainWindow : Window
                     DeleteLocalFile(viewModel.GetCurrentLocalRoot(), file.Path);
                     viewModel.AddLog($"[Normal] Delete {file.Path.Value}: 本地文件已删除");
                 }
+                else if (target == FilePaneKind.Backup)
+                {
+                    DeleteLocalFile(viewModel.GetCurrentBackupRoot(), file.Path);
+                    viewModel.AddLog($"[Normal] Delete {file.Path.Value}: 备份文件已删除");
+                }
             }
 
             await viewModel.RefreshFilePanesAsync(CancellationToken.None);
@@ -205,6 +256,18 @@ public partial class MainWindow : Window
         {
             viewModel.AddLog($"[Error] Delete: {ex.Message}");
         }
+    }
+
+    private void DeleteFromActivePane()
+    {
+        var files = activeFilePane?.SelectedRegularFiles ?? Array.Empty<FileEntry>();
+        if (files.Count == 0)
+        {
+            viewModel.AddLog("[Warning] Delete: 活动窗口没有选中文件");
+            return;
+        }
+
+        OnFilePaneDeleteRequested(activeFilePane!, files);
     }
 
     private async Task CopyFilesAsync(
@@ -232,17 +295,16 @@ public partial class MainWindow : Window
 
         try
         {
-            var localRoot = viewModel.GetCurrentLocalRoot();
             foreach (var file in files)
             {
                 var destinationPath = CopyPathResolver.ResolveDestinationPath(targetDirectory, file.Path);
                 if (target == FilePaneKind.Draft)
                 {
-                    await CopyToDraftAsync(localRoot, services, source, file.Path, destinationPath);
+                    await CopyToDraftAsync(GetSourceLocalRoot(source), services, source, file.Path, destinationPath);
                 }
-                else if (target == FilePaneKind.Local)
+                else if (IsLocalFilePane(target))
                 {
-                    await CopyToLocalAsync(localRoot, services, source, file.Path, destinationPath);
+                    await CopyToLocalAsync(GetLocalRoot(target), services, source, file.Path, destinationPath);
                 }
             }
 
@@ -255,7 +317,7 @@ public partial class MainWindow : Window
     }
 
     private async Task CopyToDraftAsync(
-        string localRoot,
+        string? sourceLocalRoot,
         WorkflowServices services,
         FilePaneKind source,
         RelativePath sourcePath,
@@ -269,9 +331,9 @@ public partial class MainWindow : Window
         }
 
         var isOverwrite = await services.DraftClient.FileExistsAsync(destinationPath, CancellationToken.None);
-        if (source == FilePaneKind.Local)
+        if (IsLocalFilePane(source))
         {
-            await using var localSource = File.OpenRead(ToLocalPath(localRoot, sourcePath));
+            await using var localSource = File.OpenRead(ToLocalPath(sourceLocalRoot!, sourcePath));
             await services.DraftClient.UploadAsync(destinationPath, localSource, CancellationToken.None);
         }
         else
@@ -284,20 +346,21 @@ public partial class MainWindow : Window
     }
 
     private async Task CopyToLocalAsync(
-        string localRoot,
+        string targetLocalRoot,
         WorkflowServices services,
         FilePaneKind source,
         RelativePath sourcePath,
         RelativePath destinationPath)
     {
-        if (source == FilePaneKind.Local)
+        var destination = ToLocalPath(targetLocalRoot, destinationPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(destination) ?? targetLocalRoot);
+        if (IsLocalFilePane(source))
         {
-            viewModel.AddLog($"[Warning] Copy {sourcePath.Value}: 来源和目标均为本地，已跳过");
+            File.Copy(ToLocalPath(GetLocalRoot(source), sourcePath), destination, overwrite: true);
+            viewModel.AddLog($"[Normal] Copy {FormatCopyPath(sourcePath, destinationPath)}: 已复制到本地窗口");
             return;
         }
 
-        var destination = ToLocalPath(localRoot, destinationPath);
-        Directory.CreateDirectory(Path.GetDirectoryName(destination) ?? localRoot);
         await DownloadToLocalFileAsync(GetRemoteClient(services, source), sourcePath, destination);
         viewModel.AddLog($"[Normal] Copy {FormatCopyPath(sourcePath, destinationPath)}: 已复制到本地");
     }
@@ -386,6 +449,26 @@ public partial class MainWindow : Window
         return index <= 0 ? null : RelativePath.Parse(path.Value[..index]);
     }
 
+    private string? GetSourceLocalRoot(FilePaneKind pane)
+    {
+        return IsLocalFilePane(pane) ? GetLocalRoot(pane) : null;
+    }
+
+    private string GetLocalRoot(FilePaneKind pane)
+    {
+        return pane switch
+        {
+            FilePaneKind.Local => viewModel.GetCurrentLocalRoot(),
+            FilePaneKind.Backup => viewModel.GetCurrentBackupRoot(),
+            _ => throw new InvalidOperationException("面板不是本地文件窗口。")
+        };
+    }
+
+    private static bool IsLocalFilePane(FilePaneKind pane)
+    {
+        return pane is FilePaneKind.Local or FilePaneKind.Backup;
+    }
+
     private static IRemoteFileClient GetRemoteClient(WorkflowServices services, FilePaneKind source)
     {
         return source switch
@@ -421,6 +504,7 @@ public partial class MainWindow : Window
             _ when ReferenceEquals(sender, ProductionFilePane) => FilePaneKind.Production,
             _ when ReferenceEquals(sender, DraftFilePane) => FilePaneKind.Draft,
             _ when ReferenceEquals(sender, LocalFilePane) => FilePaneKind.Local,
+            _ when ReferenceEquals(sender, BackupFilePane) => FilePaneKind.Backup,
             _ => null
         };
     }
@@ -432,13 +516,14 @@ public partial class MainWindow : Window
             FilePaneKind.Production => viewModel.ProductionPane.CurrentPath,
             FilePaneKind.Draft => viewModel.DraftPane.CurrentPath,
             FilePaneKind.Local => viewModel.LocalPane.CurrentPath,
+            FilePaneKind.Backup => viewModel.BackupPane.CurrentPath,
             _ => "/"
         };
     }
 
     private string GetCopyTargetDirectory(FilePaneKind pane)
     {
-        return pane == FilePaneKind.Local ? "/" : GetPaneCurrentPath(pane);
+        return IsLocalFilePane(pane) ? "/" : GetPaneCurrentPath(pane);
     }
 
     private static string FormatCopyPath(RelativePath sourcePath, RelativePath destinationPath)
@@ -455,6 +540,7 @@ public partial class MainWindow : Window
             FilePaneKind.Production => "生产服务器",
             FilePaneKind.Draft => "起案服务器",
             FilePaneKind.Local => "本地文件",
+            FilePaneKind.Backup => "备份 / 对照",
             _ => pane.ToString()
         };
     }
@@ -478,7 +564,8 @@ internal enum FilePaneKind
 {
     Production,
     Draft,
-    Local
+    Local,
+    Backup
 }
 
 internal sealed record FilePaneClipboard(FilePaneKind Source, IReadOnlyList<FileEntry> Files);

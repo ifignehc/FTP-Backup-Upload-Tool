@@ -1,4 +1,6 @@
 using System.Xml.Linq;
+using System.Windows.Input;
+using FtpBackupUploadTool.App;
 
 namespace FtpBackupUploadTool.Tests;
 
@@ -21,6 +23,24 @@ internal static class MainWindowTests
         TestAssert.True(
             code.Contains("TimeSpan.FromSeconds(60)", StringComparison.Ordinal),
             "initial remote file pane refresh should allow slow company FTP directory listing");
+    }
+
+    public static void WindowShortcutsUseCtrlCopyPasteWithoutF5Copy()
+    {
+        TestAssert.Equal(
+            WindowShortcutAction.None,
+            MainWindowShortcutMapper.Resolve(Key.F5, ModifierKeys.None),
+            "F5 should not trigger copy from the keyboard");
+
+        TestAssert.Equal(
+            WindowShortcutAction.Copy,
+            MainWindowShortcutMapper.Resolve(Key.C, ModifierKeys.Control),
+            "Ctrl+C should copy selected files from the active pane");
+
+        TestAssert.Equal(
+            WindowShortcutAction.Paste,
+            MainWindowShortcutMapper.Resolve(Key.V, ModifierKeys.Control),
+            "Ctrl+V should paste files into the active pane");
     }
 
     private static string FindRepositoryFile(params string[] relativeParts)

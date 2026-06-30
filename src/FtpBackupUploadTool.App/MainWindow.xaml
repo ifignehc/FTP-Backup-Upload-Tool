@@ -8,23 +8,34 @@
         mc:Ignorable="d"
         Icon="Assets/AppIcon.ico"
         Title="FTP BU Tool"
-        Height="720"
-        MinHeight="620"
-        Width="1180"
-        MinWidth="980"
-        Background="#F4F6F8">
+        Height="780"
+        MinHeight="680"
+        Width="1360"
+        MinWidth="1120"
+        Background="#F4F6F8"
+        KeyDown="OnWindowKeyDown">
     <Window.Resources>
         <converters:LogForegroundConverter x:Key="LogForegroundConverter" />
+        <Style TargetType="GroupBox">
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Padding" Value="8" />
+        </Style>
+        <Style x:Key="FunctionButtonStyle" TargetType="Button">
+            <Setter Property="MinWidth" Value="92" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Padding" Value="10,7" />
+        </Style>
     </Window.Resources>
 
-    <Grid Margin="16">
+    <Grid Margin="14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="180" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="155" />
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,12" LastChildFill="True">
+        <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <Button MinWidth="88" Margin="8,0,0,0" Padding="14,8" Command="{Binding BackupCommand}" Content="备份" />
                 <Button MinWidth="88" Margin="8,0,0,0" Padding="14,8" Command="{Binding UploadCommand}" Content="上传" />
@@ -34,7 +45,7 @@
 
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold" Text="工序" />
-                <ComboBox Width="180"
+                <ComboBox Width="190"
                           ItemsSource="{Binding Processes}"
                           SelectedItem="{Binding SelectedProcess, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                 <TextBlock VerticalAlignment="Center" Margin="18,0,0,0" Foreground="#475467" Text="{Binding RootSummary}" />
@@ -44,11 +55,7 @@
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="260" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="10" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
@@ -62,35 +69,74 @@
                          Text="{Binding PathListText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
             </GroupBox>
 
-            <GroupBox Grid.Column="2" Header="{Binding ProductionPane.Title}">
-                <controls:FilePaneControl x:Name="ProductionFilePane"
-                                          DataContext="{Binding ProductionPane}"
-                                          PathRefreshRequested="OnFilePanePathRefreshRequested"
-                                          CopyRequested="OnFilePaneCopyRequested" />
-            </GroupBox>
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-            <GroupBox Grid.Column="4" Header="{Binding DraftPane.Title}">
-                <controls:FilePaneControl x:Name="DraftFilePane"
-                                          DataContext="{Binding DraftPane}"
-                                          PathRefreshRequested="OnFilePanePathRefreshRequested"
-                                          CopyRequested="OnFilePaneCopyRequested"
-                                          PasteRequested="OnFilePanePasteRequested"
-                                          DeleteRequested="OnFilePaneDeleteRequested"
-                                          FilesDropped="OnFilePaneFilesDropped" />
-            </GroupBox>
+                <GroupBox Grid.Row="0" Grid.Column="0" Header="{Binding ProductionPane.Title}">
+                    <controls:FilePaneControl x:Name="ProductionFilePane"
+                                              DataContext="{Binding ProductionPane}"
+                                              PaneActivated="OnFilePaneActivated"
+                                              PathRefreshRequested="OnFilePanePathRefreshRequested"
+                                              CopyRequested="OnFilePaneCopyRequested" />
+                </GroupBox>
 
-            <GroupBox Grid.Column="6" Header="{Binding LocalPane.Title}">
-                <controls:FilePaneControl x:Name="LocalFilePane"
-                                          DataContext="{Binding LocalPane}"
-                                          PathRefreshRequested="OnFilePanePathRefreshRequested"
-                                          CopyRequested="OnFilePaneCopyRequested"
-                                          PasteRequested="OnFilePanePasteRequested"
-                                          DeleteRequested="OnFilePaneDeleteRequested"
-                                          FilesDropped="OnFilePaneFilesDropped" />
-            </GroupBox>
+                <GroupBox Grid.Row="0" Grid.Column="2" Header="{Binding DraftPane.Title}">
+                    <controls:FilePaneControl x:Name="DraftFilePane"
+                                              DataContext="{Binding DraftPane}"
+                                              PaneActivated="OnFilePaneActivated"
+                                              PathRefreshRequested="OnFilePanePathRefreshRequested"
+                                              CopyRequested="OnFilePaneCopyRequested"
+                                              PasteRequested="OnFilePanePasteRequested"
+                                              DeleteRequested="OnFilePaneDeleteRequested"
+                                              FilesDropped="OnFilePaneFilesDropped" />
+                </GroupBox>
+
+                <GroupBox Grid.Row="2" Grid.Column="0" Header="{Binding LocalPane.Title}">
+                    <controls:FilePaneControl x:Name="LocalFilePane"
+                                              DataContext="{Binding LocalPane}"
+                                              PaneActivated="OnFilePaneActivated"
+                                              PathRefreshRequested="OnFilePanePathRefreshRequested"
+                                              CopyRequested="OnFilePaneCopyRequested"
+                                              PasteRequested="OnFilePanePasteRequested"
+                                              DeleteRequested="OnFilePaneDeleteRequested"
+                                              FilesDropped="OnFilePaneFilesDropped" />
+                </GroupBox>
+
+                <GroupBox Grid.Row="2" Grid.Column="2" Header="{Binding BackupPane.Title}">
+                    <controls:FilePaneControl x:Name="BackupFilePane"
+                                              DataContext="{Binding BackupPane}"
+                                              PaneActivated="OnFilePaneActivated"
+                                              PathRefreshRequested="OnFilePanePathRefreshRequested"
+                                              CopyRequested="OnFilePaneCopyRequested"
+                                              PasteRequested="OnFilePanePasteRequested"
+                                              DeleteRequested="OnFilePaneDeleteRequested"
+                                              FilesDropped="OnFilePaneFilesDropped" />
+                </GroupBox>
+            </Grid>
         </Grid>
 
-        <GroupBox Grid.Row="2" Margin="0,12,0,0" Header="日志窗口">
+        <Border Grid.Row="2"
+                Margin="0,10,0,0"
+                Padding="8"
+                Background="#E7EEF6"
+                BorderBrush="#C6D3E1"
+                BorderThickness="1">
+            <StackPanel Orientation="Horizontal">
+                <Button Style="{StaticResource FunctionButtonStyle}" Content="F8 删除" Click="OnFunctionDeleteClicked" />
+                <Button Style="{StaticResource FunctionButtonStyle}" Content="F9 刷新" Click="OnFunctionRefreshClicked" />
+            </StackPanel>
+        </Border>
+
+        <GroupBox Grid.Row="3" Margin="0,10,0,0" Header="日志窗口">
             <ListBox Padding="8"
                      Background="#101828"
                      FontFamily="Consolas"

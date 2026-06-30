@@ -40,6 +40,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ProductionPane = new FilePaneViewModel("生产服务器", true, Array.Empty<FileEntry>());
         DraftPane = new FilePaneViewModel("起案服务器", false, Array.Empty<FileEntry>());
         LocalPane = new FilePaneViewModel("本地文件", false, Array.Empty<FileEntry>(), usesAbsolutePaths: true);
+        BackupPane = new FilePaneViewModel("备份 / 对照", false, Array.Empty<FileEntry>(), usesAbsolutePaths: true);
         Logs = new ObservableCollection<string>
         {
             FormatLog("工具界面已就绪")
@@ -136,6 +137,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public FilePaneViewModel LocalPane { get; }
 
+    public FilePaneViewModel BackupPane { get; }
+
     public ObservableCollection<string> Logs { get; }
 
     public ProcessConfig? CurrentProcess => currentProcess;
@@ -199,6 +202,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         ProductionPane.CurrentPath = "/";
         DraftPane.CurrentPath = "/";
+        BackupPane.CurrentPath = config.Backup.BackupDirectory;
         RootSummary = $"服务器根目录：{config.ProductionServer.RootPath}";
     }
 
@@ -209,12 +213,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
             ProductionPane.ReplaceFiles(Array.Empty<FileEntry>());
             DraftPane.ReplaceFiles(Array.Empty<FileEntry>());
             LocalPane.ReplaceFiles(Array.Empty<FileEntry>());
+            BackupPane.ReplaceFiles(Array.Empty<FileEntry>());
             return;
         }
 
         await RefreshRemotePaneAsync("生产服务器", ProductionPane, currentServices.ProductionClient, cancellationToken);
         await RefreshRemotePaneAsync("起案服务器", DraftPane, currentServices.DraftClient, cancellationToken);
-        RefreshLocalPane();
+        RefreshLocalPane(LocalPane, GetCurrentLocalRoot(), "本地");
+        RefreshLocalPane(BackupPane, BackupPane.CurrentPath, "备份");
     }
 
     private IReadOnlyList<RelativePath> ParsePaths() => PathListParser.Parse(PathListText);
@@ -347,15 +353,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
-    private void RefreshLocalPane()
+    private void RefreshLocalPane(FilePaneViewModel pane, string directoryPath, string label)
     {
         try
         {
-            var currentDirectory = GetCurrentLocalRoot();
+            var currentDirectory = Path.GetFullPath(Environment.ExpandEnvironmentVariables(directoryPath));
             if (!Directory.Exists(currentDirectory))
             {
-                LocalPane.ReplaceFiles(Array.Empty<FileEntry>());
-                AddLog($"[Warning] 本地路径不存在：{currentDirectory}");
+                pane.ReplaceFiles(Array.Empty<FileEntry>());
+                AddLog($"[Warning] {label}路径不存在：{currentDirectory}");
                 return;
             }
 
@@ -370,12 +376,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     var info = new FileInfo(file);
                     return new FileEntry(CreateLocalPaneEntryPath(file), false, info.Length, info.LastWriteTimeUtc);
                 });
-            LocalPane.ReplaceFiles(directories.Concat(files));
+            pane.ReplaceFiles(directories.Concat(files));
         }
         catch (Exception ex)
         {
-            LocalPane.ReplaceFiles(Array.Empty<FileEntry>());
-            AddLog($"[Warning] 本地文件列表刷新失败：{ex.Message}");
+            pane.ReplaceFiles(Array.Empty<FileEntry>());
+            AddLog($"[Warning] {label}文件列表刷新失败：{ex.Message}");
         }
     }
 
@@ -393,6 +399,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string GetCurrentLocalRoot()
     {
         return Path.GetFullPath(Environment.ExpandEnvironmentVariables(LocalPane.CurrentPath));
+    }
+
+    public string GetCurrentBackupRoot()
+    {
+        return Path.GetFullPath(Environment.ExpandEnvironmentVariables(BackupPane.CurrentPath));
     }
 
     private static RelativePath CreateLocalPaneEntryPath(string path)

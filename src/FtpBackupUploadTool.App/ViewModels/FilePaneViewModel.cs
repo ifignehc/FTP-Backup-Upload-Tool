@@ -8,6 +8,7 @@ namespace FtpBackupUploadTool.App.ViewModels;
 public sealed class FilePaneViewModel : INotifyPropertyChanged
 {
     private string currentPath = "/";
+    private string filterText = string.Empty;
 
     public FilePaneViewModel(
         string title,
@@ -20,6 +21,8 @@ public sealed class FilePaneViewModel : INotifyPropertyChanged
         UsesAbsolutePaths = usesAbsolutePaths;
         currentPath = usesAbsolutePaths ? NormalizePath(null, true) : "/";
         Files = new ObservableCollection<FileEntry>(files);
+        FilteredFiles = new ObservableCollection<FileEntry>();
+        RebuildFilteredFiles();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -48,6 +51,24 @@ public sealed class FilePaneViewModel : INotifyPropertyChanged
 
     public ObservableCollection<FileEntry> Files { get; }
 
+    public ObservableCollection<FileEntry> FilteredFiles { get; }
+
+    public string FilterText
+    {
+        get => filterText;
+        set
+        {
+            if (filterText == value)
+            {
+                return;
+            }
+
+            filterText = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FilterText)));
+            RebuildFilteredFiles();
+        }
+    }
+
     public void ReplaceFiles(IEnumerable<FileEntry> files)
     {
         Files.Clear();
@@ -58,6 +79,8 @@ public sealed class FilePaneViewModel : INotifyPropertyChanged
         {
             Files.Add(file);
         }
+
+        RebuildFilteredFiles();
     }
 
     public string GetParentPath()
@@ -118,5 +141,25 @@ public sealed class FilePaneViewModel : INotifyPropertyChanged
         return string.IsNullOrWhiteSpace(userProfile) || !Directory.Exists(userProfile)
             ? Directory.GetCurrentDirectory()
             : userProfile;
+    }
+
+    private void RebuildFilteredFiles()
+    {
+        FilteredFiles.Clear();
+        foreach (var file in Files.Where(MatchesFilter))
+        {
+            FilteredFiles.Add(file);
+        }
+    }
+
+    private bool MatchesFilter(FileEntry file)
+    {
+        if (string.IsNullOrWhiteSpace(FilterText))
+        {
+            return true;
+        }
+
+        return file.DisplayName.Contains(FilterText.Trim(), StringComparison.OrdinalIgnoreCase)
+            || file.Path.Value.Contains(FilterText.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 }

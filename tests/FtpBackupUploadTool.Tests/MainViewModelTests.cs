@@ -55,6 +55,59 @@ internal static class MainViewModelTests
         TestAssert.Equal(1, checkChanges, "check command should notify can-execute changes when paths change");
     }
 
+    public static void LoadProcessInitializesBackupPaneFromBackupDirectory()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-main-vm", Guid.NewGuid().ToString("N"));
+        var productionRoot = Path.Combine(tempRoot, "production");
+        var draftRoot = Path.Combine(tempRoot, "draft");
+        var localRoot = Path.Combine(tempRoot, "local");
+        var backupRoot = Path.Combine(tempRoot, "backups");
+        Directory.CreateDirectory(productionRoot);
+        Directory.CreateDirectory(draftRoot);
+        Directory.CreateDirectory(localRoot);
+        Directory.CreateDirectory(backupRoot);
+
+        var viewModel = CreateLoadedViewModel(
+            new LocalMirrorRemoteClient(productionRoot),
+            new LocalMirrorRemoteClient(draftRoot),
+            localRoot,
+            backupDirectory: backupRoot);
+
+        TestAssert.Equal(
+            Path.GetFullPath(backupRoot),
+            viewModel.BackupPane.CurrentPath,
+            "the fourth commander pane should open the configured backup directory");
+    }
+
+    public static void RefreshFilePanesListsBackupPaneDirectory()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-main-vm", Guid.NewGuid().ToString("N"));
+        var productionRoot = Path.Combine(tempRoot, "production");
+        var draftRoot = Path.Combine(tempRoot, "draft");
+        var localRoot = Path.Combine(tempRoot, "local");
+        var backupRoot = Path.Combine(tempRoot, "backups");
+        Directory.CreateDirectory(productionRoot);
+        Directory.CreateDirectory(draftRoot);
+        Directory.CreateDirectory(localRoot);
+        Directory.CreateDirectory(Path.Combine(backupRoot, "20260630_Backup"));
+        File.WriteAllText(Path.Combine(backupRoot, "notes.md"), "backup notes");
+
+        var viewModel = CreateLoadedViewModel(
+            new LocalMirrorRemoteClient(productionRoot),
+            new LocalMirrorRemoteClient(draftRoot),
+            localRoot,
+            backupDirectory: backupRoot);
+
+        viewModel.RefreshFilePanesAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+        TestAssert.True(
+            viewModel.BackupPane.Files.Any(file => file.IsDirectory && file.DisplayName == "20260630_Backup/"),
+            "backup pane should list backup folders");
+        TestAssert.True(
+            viewModel.BackupPane.Files.Any(file => !file.IsDirectory && file.DisplayName == "notes.md"),
+            "backup pane should list backup files");
+    }
+
     public static void UploadUsesCurrentLocalPaneDirectoryAsLocalRoot()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-main-vm", Guid.NewGuid().ToString("N"));
@@ -142,6 +195,39 @@ internal static class MainViewModelTests
             "main log should tell the user where the check log was saved");
     }
 
+    public static void UploadStillUsesLocalPaneWhenBackupPanePointsElsewhere()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-main-vm", Guid.NewGuid().ToString("N"));
+        var productionRoot = Path.Combine(tempRoot, "production");
+        var draftRoot = Path.Combine(tempRoot, "draft");
+        var configuredLocalRoot = Path.Combine(tempRoot, "configured-local");
+        var currentLocalRoot = Path.Combine(tempRoot, "current-local");
+        var backupRoot = Path.Combine(tempRoot, "backups");
+        Directory.CreateDirectory(productionRoot);
+        Directory.CreateDirectory(Path.Combine(draftRoot, "css"));
+        Directory.CreateDirectory(configuredLocalRoot);
+        Directory.CreateDirectory(Path.Combine(currentLocalRoot, "css"));
+        Directory.CreateDirectory(Path.Combine(backupRoot, "css"));
+        File.WriteAllText(Path.Combine(currentLocalRoot, "css", "site.css"), "current-local-body");
+        File.WriteAllText(Path.Combine(backupRoot, "css", "site.css"), "backup-body");
+
+        var viewModel = CreateLoadedViewModel(
+            new LocalMirrorRemoteClient(productionRoot),
+            new LocalMirrorRemoteClient(draftRoot),
+            configuredLocalRoot,
+            backupDirectory: backupRoot);
+        viewModel.LocalPane.CurrentPath = currentLocalRoot;
+        viewModel.BackupPane.CurrentPath = backupRoot;
+        viewModel.PathListText = "css/site.css";
+
+        RunPrivateWorkflow(viewModel, "RunUploadCoreAsync");
+
+        TestAssert.Equal(
+            "current-local-body",
+            File.ReadAllText(Path.Combine(draftRoot, "css", "site.css")),
+            "upload must keep using the local work pane instead of the new backup pane");
+    }
+
     private static MainViewModel CreateViewModel()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-main-vm", Guid.NewGuid().ToString("N"));
@@ -162,7 +248,8 @@ internal static class MainViewModelTests
         LocalMirrorRemoteClient production,
         LocalMirrorRemoteClient draft,
         string configuredLocalRoot,
-        CheckLogConfig? checkLog = null)
+        CheckLogConfig? checkLog = null,
+        string? backupDirectory = null)
     {
         var viewModel = new MainViewModel(
             new BackupService(production, new BackupLogWriter()),
@@ -174,7 +261,7 @@ internal static class MainViewModelTests
             new ServerConfig("draft", 21, "draft-user", string.Empty, "/www"),
             configuredLocalRoot,
             string.Empty,
-            new BackupConfig(Path.GetTempPath(), "{yyyy}{MM}{dd}", LogFieldOptions.All),
+            new BackupConfig(backupDirectory ?? Path.GetTempPath(), "{yyyy}{MM}{dd}", LogFieldOptions.All),
             checkLog ?? new CheckLogConfig(Path.GetTempPath(), "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Check"));
         var services = new WorkflowServices(
             new BackupService(production, new BackupLogWriter()),
