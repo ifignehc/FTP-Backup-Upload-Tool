@@ -33,6 +33,7 @@ var tests = new Action[]
     MainWindowTests.MainWindowTitleIsFtpBuTool,
     MainWindowTests.InitialRemoteRefreshTimeoutAllowsSlowCompanyFtpListing,
     PublishScriptTests.PublishScriptNamesPortableExeFtpBuTool,
+    PublishScriptTests.PublishScriptSupportsBuildVersionProperties,
     AppProjectTests.AppProjectEmbedsWindowIconResource,
     LogForegroundConverterTests.WarningAndErrorLogsUseDistinctForegroundColors,
     FileEntryTests.FileEntryFormatsLastModifiedLikeBackupLog,

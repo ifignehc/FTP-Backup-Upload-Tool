@@ -1,3 +1,9 @@
+param(
+    [string]$Version = '',
+    [string]$FileVersion = '',
+    [string]$InformationalVersion = ''
+)
+
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
@@ -6,7 +12,34 @@ $output = Join-Path $root 'artifacts/portable-win-x64'
 
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 
-dotnet publish $project -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $output
+$publishArgs = @(
+    $project,
+    '-c',
+    'Release',
+    '-r',
+    'win-x64',
+    '--self-contained',
+    'true',
+    '-p:PublishSingleFile=true',
+    '-p:IncludeNativeLibrariesForSelfExtract=true',
+    '-o',
+    $output
+)
+
+if ($Version -ne '') {
+    $publishArgs += "-p:Version=$Version"
+}
+
+if ($FileVersion -ne '') {
+    $publishArgs += "-p:AssemblyVersion=$FileVersion"
+    $publishArgs += "-p:FileVersion=$FileVersion"
+}
+
+if ($InformationalVersion -ne '') {
+    $publishArgs += "-p:InformationalVersion=$InformationalVersion"
+}
+
+dotnet publish @publishArgs
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
