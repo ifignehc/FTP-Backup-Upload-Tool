@@ -87,27 +87,13 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        long size;
-        try
+        var entry = await TryGetFileEntryByMetadataAsync(path, cancellationToken);
+        if (entry is not null)
         {
-            size = await GetFileSizeAsync(path, cancellationToken);
-        }
-        catch (WebException ex) when (IsNotFound(ex))
-        {
-            return await TryGetFileEntryFromParentListingAsync(path, cancellationToken);
+            return entry;
         }
 
-        DateTimeOffset? lastModified;
-        try
-        {
-            lastModified = await GetLastModifiedAsync(path, cancellationToken);
-        }
-        catch (WebException ex) when (IsNotFound(ex))
-        {
-            lastModified = null;
-        }
-
-        return new FileEntry(path, false, size, lastModified);
+        return await TryGetFileEntryFromParentListingAsync(path, cancellationToken);
     }
 
     public async Task DownloadAsync(RelativePath path, Stream destination, CancellationToken cancellationToken)
@@ -206,17 +192,14 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
             cancellationToken.ThrowIfCancellationRequested();
 
             var childPath = Combine(directory, name);
-            var file = await GetFileEntryAsync(childPath, cancellationToken);
-            if (file is not null)
-            {
-                files.Add(file);
-                continue;
-            }
-
             if (await DirectoryExistsAsync(childPath, cancellationToken))
             {
                 await ListRecursiveAsync(childPath, files, visitedDirectories, cancellationToken);
+                continue;
             }
+
+            files.Add(await TryGetFileEntryByMetadataAsync(childPath, cancellationToken)
+                ?? new FileEntry(childPath, false, 0, null));
         }
     }
 
@@ -231,20 +214,42 @@ public sealed class FtpRemoteFileClient : IRemoteFileClient
             cancellationToken.ThrowIfCancellationRequested();
 
             var childPath = Combine(directory, name);
-            var file = await GetFileEntryAsync(childPath, cancellationToken);
-            if (file is not null)
-            {
-                result.Add(file);
-                continue;
-            }
-
             if (await DirectoryExistsAsync(childPath, cancellationToken))
             {
                 result.Add(new FileEntry(childPath, true, 0, null));
+                continue;
             }
+
+            result.Add(await TryGetFileEntryByMetadataAsync(childPath, cancellationToken)
+                ?? new FileEntry(childPath, false, 0, null));
         }
 
         return result;
+    }
+
+    private async Task<FileEntry?> TryGetFileEntryByMetadataAsync(RelativePath path, CancellationToken cancellationToken)
+    {
+        long size;
+        try
+        {
+            size = await GetFileSizeAsync(path, cancellationToken);
+        }
+        catch (WebException ex) when (IsNotFound(ex))
+        {
+            return null;
+        }
+
+        DateTimeOffset? lastModified;
+        try
+        {
+            lastModified = await GetLastModifiedAsync(path, cancellationToken);
+        }
+        catch (WebException ex) when (IsNotFound(ex))
+        {
+            lastModified = null;
+        }
+
+        return new FileEntry(path, false, size, lastModified);
     }
 
     private async Task<IReadOnlyList<DirectoryListEntry>?> TryListDirectoryDetailsAsync(

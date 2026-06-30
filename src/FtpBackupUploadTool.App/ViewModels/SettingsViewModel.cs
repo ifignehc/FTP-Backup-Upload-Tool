@@ -521,14 +521,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         bool rememberPassword,
         string label)
     {
-        if (!rememberPassword)
-        {
-            return string.Empty;
-        }
-
         if (!string.IsNullOrEmpty(plainPassword))
         {
             return passwordProtector.Protect(plainPassword);
+        }
+
+        if (!rememberPassword)
+        {
+            return string.Empty;
         }
 
         if (!string.IsNullOrWhiteSpace(existingEncryptedPassword))

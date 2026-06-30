@@ -83,6 +83,26 @@ internal static class SettingsViewModelTests
         TestAssert.Equal(string.Empty, saved.DraftServer.EncryptedPassword, "draft password should be cleared when remember password is off");
     }
 
+    public static void TypedPasswordsAreSavedEvenWhenRememberWasNotPrechecked()
+    {
+        var viewModel = new SettingsViewModel
+        {
+            RememberProductionPassword = false,
+            RememberDraftPassword = false
+        };
+
+        var saved = viewModel.BuildProcessConfig(new TestPasswordProtector(), "prod-secret", "draft-secret");
+
+        TestAssert.Equal(
+            "protected:prod-secret",
+            saved.ProductionServer.EncryptedPassword,
+            "typed production password should be saved for the runtime connection");
+        TestAssert.Equal(
+            "protected:draft-secret",
+            saved.DraftServer.EncryptedPassword,
+            "typed draft password should be saved for the runtime connection");
+    }
+
     public static void AddProcessCreatesBlankDraftWithUniqueName()
     {
         var existing = CreateProcess("test", "prod-a", "draft-a", "enc-prod-a", "enc-draft-a");

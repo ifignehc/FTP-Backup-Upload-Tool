@@ -255,6 +255,18 @@ internal static class RemoteTests
         TestAssert.Equal("/", request.RequestUri.AbsolutePath, "request URI should still target the configured server root");
     }
 
+    public static void FtpClientListsNamesWhenDetailedListFormatIsUnsupported()
+    {
+        using var server = new NamesOnlyFtpServer();
+        var client = new FtpRemoteFileClient("127.0.0.1", server.Port, "/", "user", "pass");
+
+        var entries = client.ListDirectoryAsync(null, CancellationToken.None).GetAwaiter().GetResult();
+
+        TestAssert.True(entries.Any(entry => entry.IsDirectory && entry.Path.Value == "folder"), "folder should be listed from NLST fallback");
+        TestAssert.True(entries.Any(entry => !entry.IsDirectory && entry.Path.Value == "readme.txt"), "file should be listed from NLST fallback");
+        TestAssert.True(server.RootListCount == 1, "root should not be recursively listed while classifying a directory: " + server.CommandLog);
+    }
+
     private static RelativePath CreateRelativePath(string value)
     {
         var constructor = typeof(RelativePath).GetConstructor(
@@ -430,6 +442,205 @@ internal static class RemoteTests
                     }
                 }
             }
+        }
+
+        private static string ResolveFtpPath(string currentDirectory, string value)
+        {
+            var path = Uri.UnescapeDataString(value.Trim().Replace('\\', '/'));
+            if (path.Length == 0)
+            {
+                return currentDirectory;
+            }
+
+            if (path.StartsWith("/", StringComparison.Ordinal))
+            {
+                return path;
+            }
+
+            return currentDirectory.TrimEnd('/') + "/" + path;
+        }
+    }
+
+    private sealed class NamesOnlyFtpServer : IDisposable
+    {
+        private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
+        private readonly CancellationTokenSource _cts = new();
+        private readonly List<string> _commands = new();
+        private readonly Task _serverTask;
+
+        public NamesOnlyFtpServer()
+        {
+            _listener.Start();
+            Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
+            _serverTask = Task.Run(AcceptLoop);
+        }
+
+        public int Port { get; }
+
+        public int RootListCount { get; private set; }
+
+        public string CommandLog
+        {
+            get
+            {
+                lock (_commands)
+                {
+                    return string.Join(" | ", _commands);
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            _cts.Cancel();
+            _listener.Stop();
+            try
+            {
+                _serverTask.Wait(TimeSpan.FromSeconds(2));
+            }
+            catch (AggregateException)
+            {
+            }
+
+            _cts.Dispose();
+        }
+
+        private async Task AcceptLoop()
+        {
+            while (!_cts.IsCancellationRequested)
+            {
+                TcpClient client;
+                try
+                {
+                    client = await _listener.AcceptTcpClientAsync(_cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return;
+                }
+
+                _ = Task.Run(() => HandleClientAsync(client), _cts.Token);
+            }
+        }
+
+        private async Task HandleClientAsync(TcpClient client)
+        {
+            using (client)
+            using (var stream = client.GetStream())
+            using (var reader = new StreamReader(stream, Encoding.ASCII))
+            using (var writer = new StreamWriter(stream, Encoding.ASCII) { NewLine = "\r\n", AutoFlush = true })
+            {
+                await writer.WriteLineAsync("220 test ftp ready");
+                TcpListener? dataListener = null;
+
+                while (!_cts.IsCancellationRequested)
+                {
+                    var line = await reader.ReadLineAsync();
+                    if (line is null)
+                    {
+                        return;
+                    }
+
+                    lock (_commands)
+                    {
+                        _commands.Add(line);
+                    }
+
+                    var command = line.Split(' ', 2)[0].ToUpperInvariant();
+                    var argument = line.Contains(' ', StringComparison.Ordinal) ? line.Split(' ', 2)[1] : string.Empty;
+                    var path = ResolveFtpPath("/", argument);
+
+                    switch (command)
+                    {
+                        case "USER":
+                            await writer.WriteLineAsync("331 password required");
+                            break;
+                        case "PASS":
+                            await writer.WriteLineAsync("230 logged in");
+                            break;
+                        case "SYST":
+                            await writer.WriteLineAsync("215 UNIX Type: L8");
+                            break;
+                        case "PWD":
+                            await writer.WriteLineAsync("257 \"/\" is current directory");
+                            break;
+                        case "TYPE":
+                            await writer.WriteLineAsync("200 type set");
+                            break;
+                        case "SIZE":
+                            await writer.WriteLineAsync(path == "/readme.txt" ? "213 5" : "550 unavailable");
+                            break;
+                        case "MDTM":
+                            await writer.WriteLineAsync(path == "/readme.txt" ? "213 20260630093000" : "550 unavailable");
+                            break;
+                        case "PASV":
+                            dataListener?.Stop();
+                            dataListener = new TcpListener(IPAddress.Loopback, 0);
+                            dataListener.Start();
+                            var port = ((IPEndPoint)dataListener.LocalEndpoint).Port;
+                            await writer.WriteLineAsync($"227 Entering Passive Mode (127,0,0,1,{port / 256},{port % 256})");
+                            break;
+                        case "LIST":
+                            if (path == "/")
+                            {
+                                RootListCount++;
+                            }
+
+                            await WriteDataAsync(writer, dataListener, new[] { "folder", "readme.txt" });
+                            dataListener = null;
+                            break;
+                        case "NLST":
+                            if (path == "/" || path.Length == 0)
+                            {
+                                await WriteDataAsync(writer, dataListener, new[] { "folder", "readme.txt" });
+                            }
+                            else if (path == "/folder")
+                            {
+                                await WriteDataAsync(writer, dataListener, Array.Empty<string>());
+                            }
+                            else
+                            {
+                                await writer.WriteLineAsync("550 unavailable");
+                            }
+
+                            dataListener = null;
+                            break;
+                        case "QUIT":
+                            await writer.WriteLineAsync("221 goodbye");
+                            return;
+                        default:
+                            await writer.WriteLineAsync("200 ok");
+                            break;
+                    }
+                }
+            }
+        }
+
+        private static async Task WriteDataAsync(StreamWriter writer, TcpListener? dataListener, IReadOnlyList<string> lines)
+        {
+            if (dataListener is null)
+            {
+                await writer.WriteLineAsync("425 no data connection");
+                return;
+            }
+
+            await writer.WriteLineAsync("150 opening data connection");
+            using (var dataClient = await dataListener.AcceptTcpClientAsync())
+            using (var dataStream = dataClient.GetStream())
+            using (var dataWriter = new StreamWriter(dataStream, Encoding.ASCII) { NewLine = "\r\n", AutoFlush = true })
+            {
+                foreach (var line in lines)
+                {
+                    await dataWriter.WriteLineAsync(line);
+                }
+            }
+
+            dataListener.Stop();
+            await writer.WriteLineAsync("226 transfer complete");
         }
 
         private static string ResolveFtpPath(string currentDirectory, string value)

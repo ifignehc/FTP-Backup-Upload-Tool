@@ -124,7 +124,7 @@ public partial class MainWindow : Window
         viewModel.LoadProcess(process, factory.Create(process));
         viewModel.AddLog($"已加载配置：{process.Name}");
 
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         await viewModel.RefreshFilePanesAsync(timeout.Token);
     }
 
