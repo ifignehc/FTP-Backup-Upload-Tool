@@ -40,7 +40,7 @@ public sealed class ProcessRuntimeFactory
         return new WorkflowServices(
             new BackupService(production, new BackupLogWriter()),
             new UploadService(draft, config.LocalRootPath),
-            new CheckService(production, draft),
+            new CheckService(production, draft, config.LocalRootPath),
             production,
             draft);
     }

@@ -1,3 +1,4 @@
+using FtpBackupUploadTool.Core.Formatting;
 using FtpBackupUploadTool.Core.Models;
 using FtpBackupUploadTool.Core.Paths;
 using FtpBackupUploadTool.Core.Remote;
@@ -11,12 +12,14 @@ public sealed class CheckService
     private const string Operation = "Check";
 
     private readonly IRemoteFileClient _draft;
+    private readonly string? _localRootPath;
     private readonly IRemoteFileClient _production;
 
-    public CheckService(IRemoteFileClient production, IRemoteFileClient draft)
+    public CheckService(IRemoteFileClient production, IRemoteFileClient draft, string? localRootPath = null)
     {
         _production = production;
         _draft = draft;
+        _localRootPath = localRootPath;
     }
 
     public async Task<CheckRunResult> RunAsync(IReadOnlyList<RelativePath> paths, CancellationToken cancellationToken)
@@ -24,20 +27,22 @@ public sealed class CheckService
         cancellationToken.ThrowIfCancellationRequested();
 
         var uniquePaths = GetUniquePaths(paths);
+        var pathListSet = new HashSet<string>(uniquePaths.Select(path => path.Value), StringComparer.OrdinalIgnoreCase);
         var logs = new List<OperationLogEntry>();
 
         foreach (var path in uniquePaths)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (await _draft.FileExistsAsync(path, cancellationToken))
+            var draftEntry = await _draft.GetFileEntryAsync(path, cancellationToken);
+            if (draftEntry is not null && !draftEntry.IsDirectory)
             {
                 logs.Add(new OperationLogEntry(
                     DateTimeOffset.Now,
                     OperationLogLevel.Normal,
                     Operation,
                     path,
-                    "文件更新：起案服务器存在该路径对应文件。"));
+                    $"文件更新：起案服务器中已上传路径 {path.Value} 对应的文件，修改日期：{FormatLastModified(draftEntry.LastModified)}"));
                 continue;
             }
 
@@ -50,7 +55,7 @@ public sealed class CheckService
                     OperationLogLevel.Warning,
                     Operation,
                     path,
-                    "新路径、旧文件：起案服务器没有该文件，生产服务器仍存在旧文件。"));
+                    $"新路径旧文件：路径 {path.Value} 本次没有更新，但是生产服务器有文件。"));
             }
             else
             {
@@ -59,11 +64,54 @@ public sealed class CheckService
                     OperationLogLevel.Error,
                     Operation,
                     path,
-                    "文件缺失：起案服务器和生产服务器均不存在该文件。"));
+                    $"文件缺失：路径 {path.Value} 对应文件缺失，起案服务器和生产服务器均没有对应文件。"));
             }
         }
 
+        foreach (var localPath in GetLocalFilePaths(cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (pathListSet.Contains(localPath.Value))
+            {
+                continue;
+            }
+
+            logs.Add(new OperationLogEntry(
+                DateTimeOffset.Now,
+                OperationLogLevel.Error,
+                Operation,
+                localPath,
+                $"路径缺失：本地文件 {localPath.Value} 没有写入路径清单。"));
+        }
+
         return new CheckRunResult(logs);
+    }
+
+    private IEnumerable<RelativePath> GetLocalFilePaths(CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_localRootPath))
+        {
+            yield break;
+        }
+
+        var root = Path.GetFullPath(Environment.ExpandEnvironmentVariables(_localRootPath));
+        if (!Directory.Exists(root))
+        {
+            yield break;
+        }
+
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+            yield return RelativePath.Parse(relative);
+        }
+    }
+
+    private static string FormatLastModified(DateTimeOffset? lastModified)
+    {
+        var display = TimeDisplayFormatter.FormatBeijingTime(lastModified);
+        return string.IsNullOrWhiteSpace(display) ? "未知" : display;
     }
 
     private static IReadOnlyList<RelativePath> GetUniquePaths(IReadOnlyList<RelativePath> paths)
