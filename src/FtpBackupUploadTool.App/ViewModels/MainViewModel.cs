@@ -43,9 +43,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             FormatLog("工具界面已就绪")
         };
 
-        BackupCommand = new RelayCommand(async _ => await RunWorkflowAsync("Backup", RunBackupCoreAsync), _ => !IsWorkflowRunning);
-        UploadCommand = new RelayCommand(async _ => await RunWorkflowAsync("Upload", RunUploadCoreAsync), _ => !IsWorkflowRunning);
-        CheckCommand = new RelayCommand(async _ => await RunWorkflowAsync("Check", RunCheckCoreAsync), _ => !IsWorkflowRunning);
+        BackupCommand = new RelayCommand(async _ => await RunWorkflowAsync("Backup", RunBackupCoreAsync), _ => CanRunWorkflow());
+        UploadCommand = new RelayCommand(async _ => await RunWorkflowAsync("Upload", RunUploadCoreAsync), _ => CanRunWorkflow());
+        CheckCommand = new RelayCommand(async _ => await RunWorkflowAsync("Check", RunCheckCoreAsync), _ => CanRunWorkflow());
         OpenSettingsCommand = new RelayCommand(_ => SettingsRequested?.Invoke(this, EventArgs.Empty));
     }
 
@@ -124,6 +124,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             pathListText = value;
             OnPropertyChanged(nameof(PathListText));
+            RaiseWorkflowCommandCanExecuteChanged();
         }
     }
 
@@ -216,6 +217,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     private IReadOnlyList<RelativePath> ParsePaths() => PathListParser.Parse(PathListText);
+
+    private bool CanRunWorkflow() => !IsWorkflowRunning && HasPathListEntries();
+
+    private bool HasPathListEntries()
+    {
+        return PathListText
+            .Split(new[] { "\r\n", "\n", "," }, StringSplitOptions.None)
+            .Any(line => line.Trim().Trim(',').Length > 0);
+    }
 
     private async Task RunWorkflowAsync(string operation, Func<Task> workflow)
     {

@@ -35,6 +35,8 @@ var tests = new Action[]
     FileEntryTests.FileEntryFormatsLastModifiedLikeBackupLog,
     FileEntryTests.FileEntryFormatsMissingLastModifiedAsBlank,
     MainViewModelTests.StartsWithEmptyPathList,
+    MainViewModelTests.WorkflowCommandsRequireNonBlankPathList,
+    MainViewModelTests.PathListTextChangeRaisesWorkflowCommandCanExecuteChanged,
     ProcessRuntimeFactoryTests.EmptySavedPasswordsCreateRuntimeWithBlankPasswords,
     RemoteTests.FtpPathBuildsRootUriFromTrimmedRoot,
     RemoteTests.FtpPathBuildsRootUriFromEmptyRoot,
