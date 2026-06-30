@@ -37,7 +37,9 @@ bin/
 obj/
 dist/
 build/
-artifacts/
+artifacts/*
+!artifacts/portable-win-x64/
+artifacts/portable-win-x64/*
 out/
 release/
 *.exe
@@ -45,6 +47,7 @@ release/
 *.zip
 *.7z
 *.rar
+!artifacts/portable-win-x64/FTP-BU-Tool-portable-win-x64.zip
 
 # Dependency and language caches
 node_modules/
