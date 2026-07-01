@@ -5,7 +5,21 @@ namespace FtpBackupUploadTool.Tests;
 
 internal static class FileEntryTests
 {
-    public static void FileEntryFormatsLastModifiedLikeBackupLog()
+    public static void FileEntryFormatsUtcLastModifiedAsBeijingTime()
+    {
+        var entry = new FileEntry(
+            RelativePath.Parse("css/site.css"),
+            false,
+            12,
+            new DateTimeOffset(2026, 6, 29, 15, 36, 29, TimeSpan.Zero));
+
+        TestAssert.Equal(
+            "2026-06-29 23:36:29",
+            entry.LastModifiedDisplay,
+            "file list should show LastModified using the same Beijing-time format as the backup log");
+    }
+
+    public static void FileEntryDoesNotAddEightHoursToAlreadyBeijingLastModified()
     {
         var entry = new FileEntry(
             RelativePath.Parse("css/site.css"),
@@ -14,9 +28,9 @@ internal static class FileEntryTests
             new DateTimeOffset(2026, 6, 29, 15, 36, 29, TimeSpan.FromHours(8)));
 
         TestAssert.Equal(
-            "2026-06-29 23:36:29",
+            "2026-06-29 15:36:29",
             entry.LastModifiedDisplay,
-            "file list should show LastModified using the same Beijing-time format as the backup log");
+            "FTP list timestamps parsed as local Beijing time should not be shifted by another 8 hours");
     }
 
     public static void FileEntryFormatsMissingLastModifiedAsBlank()

@@ -10,8 +10,8 @@ public static class TimeDisplayFormatter
     {
         return value is null
             ? string.Empty
-            : DateTime.SpecifyKind(value.Value.DateTime, DateTimeKind.Utc)
-                .Add(BeijingOffset)
+            : value.Value
+                .ToOffset(BeijingOffset)
                 .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
     }
 }

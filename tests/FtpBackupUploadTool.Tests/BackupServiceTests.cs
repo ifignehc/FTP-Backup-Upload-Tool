@@ -98,7 +98,7 @@ internal static class BackupServiceTests
                 "/draft/css/site.css",
                 @"D:\backup\css\site.css",
                 12,
-                new DateTimeOffset(2026, 6, 29, 15, 36, 29, TimeSpan.FromHours(8)),
+                new DateTimeOffset(2026, 6, 29, 15, 36, 29, TimeSpan.Zero),
                 "BackedUp",
                 "",
                 "note")
