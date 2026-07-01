@@ -15,6 +15,39 @@ internal static class MainViewModelTests
         var viewModel = CreateViewModel();
 
         TestAssert.Equal(string.Empty, viewModel.PathListText, "path list should be empty when the app starts");
+        TestAssert.Equal("0 个路径", viewModel.PathListCountDisplay, "path count should start at zero");
+    }
+
+    public static void PathListCountUpdatesWhenTextChanges()
+    {
+        var viewModel = CreateViewModel();
+        var countChanges = 0;
+        viewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(MainViewModel.PathListCountDisplay))
+            {
+                countChanges++;
+            }
+        };
+
+        viewModel.PathListText = "css/site.css\r\n\r\njs/app.js, images/logo.png\r\ncss/site.css";
+
+        TestAssert.Equal("3 个路径", viewModel.PathListCountDisplay, "path count should reflect parsed unique paths");
+        TestAssert.Equal(1, countChanges, "path count should notify when the path list text changes");
+    }
+
+    public static void ConsolidatePathListRemovesDuplicatesAndBlankLines()
+    {
+        var viewModel = CreateViewModel();
+        viewModel.PathListText = " css/site.css \r\nCSS/site.css\r\n\r\njs\\app.js, images/logo.png\r\n/images/logo.png";
+
+        viewModel.ConsolidatePathListCommand.Execute(null);
+
+        TestAssert.Equal(
+            "css/site.css\r\njs/app.js\r\nimages/logo.png",
+            viewModel.PathListText,
+            "consolidate should normalize separators, remove blanks, and keep the first duplicate path");
+        TestAssert.Equal("3 个路径", viewModel.PathListCountDisplay, "path count should update after consolidation");
     }
 
     public static void WorkflowCommandsRequireNonBlankPathList()

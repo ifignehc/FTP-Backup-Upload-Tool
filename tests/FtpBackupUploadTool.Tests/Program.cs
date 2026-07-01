@@ -46,6 +46,8 @@ var tests = new Action[]
     FilePaneViewModelTests.SortByLastModifiedOrdersFilesByTimestamp,
     FilePaneViewModelTests.CountsVisibleDirectoriesAndFiles,
     MainViewModelTests.StartsWithEmptyPathList,
+    MainViewModelTests.PathListCountUpdatesWhenTextChanges,
+    MainViewModelTests.ConsolidatePathListRemovesDuplicatesAndBlankLines,
     MainViewModelTests.WorkflowCommandsRequireNonBlankPathList,
     MainViewModelTests.PathListTextChangeRaisesWorkflowCommandCanExecuteChanged,
     MainViewModelTests.LoadProcessInitializesBackupPaneFromBackupDirectory,

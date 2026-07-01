@@ -50,6 +50,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         UploadCommand = new RelayCommand(async _ => await RunWorkflowAsync("Upload", RunUploadCoreAsync), _ => CanRunWorkflow());
         CheckCommand = new RelayCommand(async _ => await RunWorkflowAsync("Check", RunCheckCoreAsync), _ => CanRunWorkflow());
         OpenSettingsCommand = new RelayCommand(_ => SettingsRequested?.Invoke(this, EventArgs.Empty));
+        ConsolidatePathListCommand = new RelayCommand(_ => ConsolidatePathList());
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -127,9 +128,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
             pathListText = value;
             OnPropertyChanged(nameof(PathListText));
+            OnPropertyChanged(nameof(PathListCountDisplay));
             RaiseWorkflowCommandCanExecuteChanged();
         }
     }
+
+    public string PathListCountDisplay => $"{ParsePathsForDisplay().Count} 个路径";
 
     public FilePaneViewModel ProductionPane { get; }
 
@@ -152,6 +156,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public ICommand CheckCommand { get; }
 
     public ICommand OpenSettingsCommand { get; }
+
+    public ICommand ConsolidatePathListCommand { get; }
 
     public void AddLog(string message)
     {
@@ -224,6 +230,30 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     private IReadOnlyList<RelativePath> ParsePaths() => PathListParser.Parse(PathListText);
+
+    private IReadOnlyList<RelativePath> ParsePathsForDisplay()
+    {
+        try
+        {
+            return ParsePaths();
+        }
+        catch (ArgumentException)
+        {
+            return Array.Empty<RelativePath>();
+        }
+    }
+
+    private void ConsolidatePathList()
+    {
+        try
+        {
+            PathListText = string.Join("\r\n", ParsePaths().Select(path => path.Value));
+        }
+        catch (ArgumentException ex)
+        {
+            AddLog($"[Warning] 路径清单整理失败：{ex.Message}");
+        }
+    }
 
     private bool CanRunWorkflow() => !IsWorkflowRunning && HasPathListEntries();
 
