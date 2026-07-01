@@ -9,6 +9,8 @@ public sealed class FilePaneViewModel : INotifyPropertyChanged
 {
     private string currentPath = "/";
     private string filterText = string.Empty;
+    private FilePaneSortColumn sortColumn = FilePaneSortColumn.Name;
+    private bool sortDescending;
 
     public FilePaneViewModel(
         string title,
@@ -53,6 +55,10 @@ public sealed class FilePaneViewModel : INotifyPropertyChanged
 
     public ObservableCollection<FileEntry> FilteredFiles { get; }
 
+    public FilePaneSortColumn SortColumn => sortColumn;
+
+    public bool SortDescending => sortDescending;
+
     public string FilterText
     {
         get => filterText;
@@ -73,13 +79,28 @@ public sealed class FilePaneViewModel : INotifyPropertyChanged
     {
         Files.Clear();
 
-        foreach (var file in files
-                     .OrderByDescending(file => file.IsDirectory)
-                     .ThenBy(file => file.DisplayName, StringComparer.OrdinalIgnoreCase))
+        foreach (var file in files)
         {
             Files.Add(file);
         }
 
+        RebuildFilteredFiles();
+    }
+
+    public void SortBy(FilePaneSortColumn column)
+    {
+        if (sortColumn == column)
+        {
+            sortDescending = !sortDescending;
+        }
+        else
+        {
+            sortColumn = column;
+            sortDescending = false;
+        }
+
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SortColumn)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SortDescending)));
         RebuildFilteredFiles();
     }
 
@@ -146,10 +167,46 @@ public sealed class FilePaneViewModel : INotifyPropertyChanged
     private void RebuildFilteredFiles()
     {
         FilteredFiles.Clear();
-        foreach (var file in Files.Where(MatchesFilter))
+        foreach (var file in SortFiles(Files.Where(MatchesFilter)))
         {
             FilteredFiles.Add(file);
         }
+    }
+
+    private IEnumerable<FileEntry> SortFiles(IEnumerable<FileEntry> files)
+    {
+        var directoryGroups = files.GroupBy(file => file.IsDirectory ? 0 : 1).OrderBy(group => group.Key);
+
+        foreach (var group in directoryGroups)
+        {
+            var sorted = SortGroup(group);
+            foreach (var file in sorted)
+            {
+                yield return file;
+            }
+        }
+    }
+
+    private IOrderedEnumerable<FileEntry> SortGroup(IEnumerable<FileEntry> files)
+    {
+        return sortColumn switch
+        {
+            FilePaneSortColumn.Size when sortDescending => files
+                .OrderByDescending(file => file.Size)
+                .ThenBy(file => file.DisplayName, StringComparer.OrdinalIgnoreCase),
+            FilePaneSortColumn.Size => files
+                .OrderBy(file => file.Size)
+                .ThenBy(file => file.DisplayName, StringComparer.OrdinalIgnoreCase),
+            FilePaneSortColumn.LastModified when sortDescending => files
+                .OrderByDescending(file => file.LastModified)
+                .ThenBy(file => file.DisplayName, StringComparer.OrdinalIgnoreCase),
+            FilePaneSortColumn.LastModified => files
+                .OrderBy(file => file.LastModified)
+                .ThenBy(file => file.DisplayName, StringComparer.OrdinalIgnoreCase),
+            _ when sortDescending => files
+                .OrderByDescending(file => file.DisplayName, StringComparer.OrdinalIgnoreCase),
+            _ => files.OrderBy(file => file.DisplayName, StringComparer.OrdinalIgnoreCase)
+        };
     }
 
     private bool MatchesFilter(FileEntry file)
@@ -162,4 +219,11 @@ public sealed class FilePaneViewModel : INotifyPropertyChanged
         return file.DisplayName.Contains(FilterText.Trim(), StringComparison.OrdinalIgnoreCase)
             || file.Path.Value.Contains(FilterText.Trim(), StringComparison.OrdinalIgnoreCase);
     }
+}
+
+public enum FilePaneSortColumn
+{
+    Name,
+    Size,
+    LastModified
 }

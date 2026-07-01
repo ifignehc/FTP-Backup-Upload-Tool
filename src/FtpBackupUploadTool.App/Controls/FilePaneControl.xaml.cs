@@ -111,6 +111,18 @@ public partial class FilePaneControl : UserControl
         dragStartPoint = null;
     }
 
+    private void OnColumnHeaderClicked(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not FilePaneViewModel viewModel ||
+            e.OriginalSource is not GridViewColumnHeader { Tag: string tag } ||
+            !Enum.TryParse<FilePaneSortColumn>(tag, out var column))
+        {
+            return;
+        }
+
+        viewModel.SortBy(column);
+    }
+
     private void OnListViewPreviewMouseMove(object sender, MouseEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed)

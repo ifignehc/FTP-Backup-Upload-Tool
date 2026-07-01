@@ -51,6 +51,7 @@
                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
                   VirtualizingPanel.IsVirtualizing="True"
                   VirtualizingPanel.VirtualizationMode="Recycling"
+                  GridViewColumnHeader.Click="OnColumnHeaderClicked"
                   PreviewMouseLeftButtonDown="OnListViewPreviewMouseLeftButtonDown"
                   PreviewMouseLeftButtonUp="OnListViewPreviewMouseLeftButtonUp"
                   PreviewMouseMove="OnListViewPreviewMouseMove"
@@ -65,9 +66,21 @@
             </ListView.ContextMenu>
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Width="190" Header="名称/路径" DisplayMemberBinding="{Binding DisplayName}" />
-                    <GridViewColumn Width="84" Header="大小" DisplayMemberBinding="{Binding SizeDisplay}" />
-                    <GridViewColumn Width="150" Header="修改时间" DisplayMemberBinding="{Binding LastModifiedDisplay}" />
+                    <GridViewColumn Width="190" DisplayMemberBinding="{Binding DisplayName}">
+                        <GridViewColumn.Header>
+                            <GridViewColumnHeader Content="名称/路径" Tag="Name" />
+                        </GridViewColumn.Header>
+                    </GridViewColumn>
+                    <GridViewColumn Width="84" DisplayMemberBinding="{Binding SizeDisplay}">
+                        <GridViewColumn.Header>
+                            <GridViewColumnHeader Content="大小" Tag="Size" />
+                        </GridViewColumn.Header>
+                    </GridViewColumn>
+                    <GridViewColumn Width="150" DisplayMemberBinding="{Binding LastModifiedDisplay}">
+                        <GridViewColumn.Header>
+                            <GridViewColumnHeader Content="修改时间" Tag="LastModified" />
+                        </GridViewColumn.Header>
+                    </GridViewColumn>
                 </GridView>
             </ListView.View>
         </ListView>
