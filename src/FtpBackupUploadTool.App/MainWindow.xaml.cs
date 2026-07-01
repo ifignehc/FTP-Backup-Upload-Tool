@@ -18,7 +18,7 @@ namespace FtpBackupUploadTool.App;
 public partial class MainWindow : Window
 {
     private static readonly Thickness InactivePaneFrameThickness = new(1);
-    private static readonly Thickness ActivePaneFrameThickness = new(8, 2, 2, 2);
+    private static readonly Thickness ActivePaneFrameThickness = new(2);
     private readonly AppConfigStore configStore = new(AppConfigStore.GetDefaultConfigPath());
     private readonly DpapiPasswordProtector passwordProtector = new();
     private readonly MainViewModel viewModel;

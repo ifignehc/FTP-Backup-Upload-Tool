@@ -263,14 +263,12 @@
     }
 
     .variant-b .pane.is-active {
-      border: 2px solid #9fb8d9;
-      border-left: 8px solid var(--blue);
+      border: 2px solid var(--blue);
       background: #fbfdff;
       box-shadow: var(--shadow);
     }
 
     .variant-b .pane.is-active h3 {
-      padding-left: 7px;
       background: var(--blue-soft);
       color: #1d4ed8;
     }
@@ -382,8 +380,8 @@ new-folder/new-file.js</div>
 
     <section class="option">
       <div class="option-head">
-        <h2>方案 B：蓝色左侧粗条 + 轻边框</h2>
-        <p class="option-note">更像文件管理器焦点条，占用空间小，但“框体加粗”的感觉弱一些。</p>
+        <h2>方案 B：蓝色 2px 边框</h2>
+        <p class="option-note">只保留完整框体边框，提示当前操作窗口但不额外占用左侧空间。</p>
       </div>
       <div class="workspace variant-b" data-preview>
         <aside class="path-list">

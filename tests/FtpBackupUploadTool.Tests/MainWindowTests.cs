@@ -43,7 +43,7 @@ internal static class MainWindowTests
             "Ctrl+V should paste files into the active pane");
     }
 
-    public static void ActiveFilePaneUsesBlueLeftFrameWithoutTextLabel()
+    public static void ActiveFilePaneUsesUniformBlueFrameWithoutTextLabel()
     {
         var xamlPath = FindRepositoryFile("src", "FtpBackupUploadTool.App", "MainWindow.xaml");
         var codePath = FindRepositoryFile("src", "FtpBackupUploadTool.App", "MainWindow.xaml.cs");
@@ -60,7 +60,7 @@ internal static class MainWindowTests
         {
             TestAssert.True(
                 xaml.Contains($"x:Name=\"{frameName}\"", StringComparison.Ordinal),
-                $"{frameName} should wrap a file pane so the active pane can show a left frame");
+                $"{frameName} should wrap a file pane so the active pane can show an active frame");
         }
 
         TestAssert.True(
@@ -68,8 +68,11 @@ internal static class MainWindowTests
             && xaml.Contains("#2563EB", StringComparison.Ordinal),
             "active pane frame should use the selected blue accent");
         TestAssert.True(
-            code.Contains("new(8, 2, 2, 2)", StringComparison.Ordinal),
-            "active pane frame should use a thick left bar and light surrounding frame");
+            code.Contains("new(2)", StringComparison.Ordinal),
+            "active pane frame should use a uniform blue border");
+        TestAssert.True(
+            !code.Contains("new(8, 2, 2, 2)", StringComparison.Ordinal),
+            "active pane frame should not keep the thick left bar");
         TestAssert.True(
             code.Contains("UpdateActiveFilePaneFrame", StringComparison.Ordinal),
             "activating a file pane should update the visible frame");
