@@ -56,6 +56,25 @@ internal static class FilePaneViewModelTests
         TestAssert.Equal("newer.txt", viewModel.FilteredFiles[1].DisplayName, "newer files should follow older files");
     }
 
+    public static void CountsVisibleDirectoriesAndFiles()
+    {
+        var viewModel = CreatePane(
+            Directory("assets"),
+            Directory("logs"),
+            File("assets/logo.png", 10, "2026-06-29T09:00:00+08:00"),
+            File("readme.txt", 20, "2026-06-29T10:00:00+08:00"));
+
+        TestAssert.Equal(2, viewModel.DirectoryCount, "directory count should include visible directories");
+        TestAssert.Equal(2, viewModel.FileCount, "file count should include visible regular files");
+        TestAssert.Equal("文件夹 2 个，文件 2 个", viewModel.ItemCountSummary, "summary should show directory and file counts");
+
+        viewModel.FilterText = "assets";
+
+        TestAssert.Equal(1, viewModel.DirectoryCount, "directory count should update after filtering");
+        TestAssert.Equal(1, viewModel.FileCount, "file count should update after filtering");
+        TestAssert.Equal("文件夹 1 个，文件 1 个", viewModel.ItemCountSummary, "summary should update after filtering");
+    }
+
     private static FilePaneViewModel CreatePane(params FileEntry[] files)
     {
         return new FilePaneViewModel("test", false, files);

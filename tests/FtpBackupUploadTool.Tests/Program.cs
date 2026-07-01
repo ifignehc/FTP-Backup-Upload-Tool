@@ -43,6 +43,7 @@ var tests = new Action[]
     FilePaneViewModelTests.SortByNameTogglesDirection,
     FilePaneViewModelTests.SortBySizeOrdersFilesByNumericSize,
     FilePaneViewModelTests.SortByLastModifiedOrdersFilesByTimestamp,
+    FilePaneViewModelTests.CountsVisibleDirectoriesAndFiles,
     MainViewModelTests.StartsWithEmptyPathList,
     MainViewModelTests.WorkflowCommandsRequireNonBlankPathList,
     MainViewModelTests.PathListTextChangeRaisesWorkflowCommandCanExecuteChanged,

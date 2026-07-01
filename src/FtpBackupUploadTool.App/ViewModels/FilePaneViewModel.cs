@@ -59,6 +59,12 @@ public sealed class FilePaneViewModel : INotifyPropertyChanged
 
     public bool SortDescending => sortDescending;
 
+    public int DirectoryCount => FilteredFiles.Count(file => file.IsDirectory);
+
+    public int FileCount => FilteredFiles.Count(file => !file.IsDirectory);
+
+    public string ItemCountSummary => $"文件夹 {DirectoryCount} 个，文件 {FileCount} 个";
+
     public string FilterText
     {
         get => filterText;
@@ -171,6 +177,10 @@ public sealed class FilePaneViewModel : INotifyPropertyChanged
         {
             FilteredFiles.Add(file);
         }
+
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DirectoryCount)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FileCount)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ItemCountSummary)));
     }
 
     private IEnumerable<FileEntry> SortFiles(IEnumerable<FileEntry> files)

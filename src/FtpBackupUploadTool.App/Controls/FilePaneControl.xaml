@@ -10,6 +10,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <DockPanel Grid.Row="0" Margin="0,0,0,5" LastChildFill="True">
@@ -84,5 +85,11 @@
                 </GridView>
             </ListView.View>
         </ListView>
+
+        <TextBlock Grid.Row="3"
+                   Margin="0,4,0,0"
+                   HorizontalAlignment="Right"
+                   Foreground="#475467"
+                   Text="{Binding ItemCountSummary}" />
     </Grid>
 </UserControl>
