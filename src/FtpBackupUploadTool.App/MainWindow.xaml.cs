@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using FtpBackupUploadTool.App.Controls;
 using FtpBackupUploadTool.App.Runtime;
 using FtpBackupUploadTool.App.ViewModels;
@@ -16,6 +17,8 @@ namespace FtpBackupUploadTool.App;
 
 public partial class MainWindow : Window
 {
+    private static readonly Thickness InactivePaneFrameThickness = new(1);
+    private static readonly Thickness ActivePaneFrameThickness = new(8, 2, 2, 2);
     private readonly AppConfigStore configStore = new(AppConfigStore.GetDefaultConfigPath());
     private readonly DpapiPasswordProtector passwordProtector = new();
     private readonly MainViewModel viewModel;
@@ -130,6 +133,22 @@ public partial class MainWindow : Window
         }
 
         activeFilePane = pane;
+        UpdateActiveFilePaneFrame();
+    }
+
+    private void UpdateActiveFilePaneFrame()
+    {
+        SetFilePaneFrameActive(ProductionPaneFrame, ReferenceEquals(activeFilePane, ProductionFilePane));
+        SetFilePaneFrameActive(DraftPaneFrame, ReferenceEquals(activeFilePane, DraftFilePane));
+        SetFilePaneFrameActive(LocalPaneFrame, ReferenceEquals(activeFilePane, LocalFilePane));
+        SetFilePaneFrameActive(BackupPaneFrame, ReferenceEquals(activeFilePane, BackupFilePane));
+    }
+
+    private void SetFilePaneFrameActive(Border frame, bool isActive)
+    {
+        frame.BorderBrush = (System.Windows.Media.Brush)FindResource(
+            isActive ? "ActivePaneBorderBrush" : "FilePaneFrameBrush");
+        frame.BorderThickness = isActive ? ActivePaneFrameThickness : InactivePaneFrameThickness;
     }
 
     private async void OnWindowKeyDown(object sender, System.Windows.Input.KeyEventArgs e)

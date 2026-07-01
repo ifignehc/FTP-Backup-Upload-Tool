@@ -43,6 +43,41 @@ internal static class MainWindowTests
             "Ctrl+V should paste files into the active pane");
     }
 
+    public static void ActiveFilePaneUsesBlueLeftFrameWithoutTextLabel()
+    {
+        var xamlPath = FindRepositoryFile("src", "FtpBackupUploadTool.App", "MainWindow.xaml");
+        var codePath = FindRepositoryFile("src", "FtpBackupUploadTool.App", "MainWindow.xaml.cs");
+        var xaml = File.ReadAllText(xamlPath);
+        var code = File.ReadAllText(codePath);
+
+        foreach (var frameName in new[]
+        {
+            "ProductionPaneFrame",
+            "DraftPaneFrame",
+            "LocalPaneFrame",
+            "BackupPaneFrame"
+        })
+        {
+            TestAssert.True(
+                xaml.Contains($"x:Name=\"{frameName}\"", StringComparison.Ordinal),
+                $"{frameName} should wrap a file pane so the active pane can show a left frame");
+        }
+
+        TestAssert.True(
+            xaml.Contains("ActivePaneBorderBrush", StringComparison.Ordinal)
+            && xaml.Contains("#2563EB", StringComparison.Ordinal),
+            "active pane frame should use the selected blue accent");
+        TestAssert.True(
+            code.Contains("new(8, 2, 2, 2)", StringComparison.Ordinal),
+            "active pane frame should use a thick left bar and light surrounding frame");
+        TestAssert.True(
+            code.Contains("UpdateActiveFilePaneFrame", StringComparison.Ordinal),
+            "activating a file pane should update the visible frame");
+        TestAssert.True(
+            !xaml.Contains("当前操作", StringComparison.Ordinal),
+            "active pane highlight should not render an explicit current-operation text label");
+    }
+
     public static void LocalCopyTargetMessagesNameBackupPaneSeparately()
     {
         var paneKindType = typeof(MainWindow).Assembly.GetType("FtpBackupUploadTool.App.FilePaneKind");

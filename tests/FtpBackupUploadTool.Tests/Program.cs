@@ -33,6 +33,7 @@ var tests = new Action[]
     MainWindowTests.MainWindowTitleIsFtpBuTool,
     MainWindowTests.InitialRemoteRefreshTimeoutAllowsSlowCompanyFtpListing,
     MainWindowTests.WindowShortcutsUseCtrlCopyPasteWithoutF5Copy,
+    MainWindowTests.ActiveFilePaneUsesBlueLeftFrameWithoutTextLabel,
     MainWindowTests.LocalCopyTargetMessagesNameBackupPaneSeparately,
     PublishScriptTests.PublishScriptNamesPortableExeFtpBuTool,
     PublishScriptTests.PublishScriptSupportsBuildVersionProperties,

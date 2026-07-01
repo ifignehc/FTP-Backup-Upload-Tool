@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>活动窗口高亮预览</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --line: #cfd7e3;
+      --text: #1f2937;
+      --muted: #667085;
+      --accent: #0f766e;
+      --accent-soft: #e6f5f2;
+      --amber: #b45309;
+      --amber-soft: #fff7ed;
+      --blue: #2563eb;
+      --blue-soft: #eff6ff;
+      --readonly: #eef6f5;
+      --shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+      letter-spacing: 0;
+    }
+
+    main {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      line-height: 1.25;
+      font-weight: 700;
+    }
+
+    .summary {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .switcher {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    button {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      padding: 0 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button.is-selected {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .option {
+      margin-bottom: 22px;
+    }
+
+    .option-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+
+    .option h2 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .option-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 10px;
+      min-height: 430px;
+      border: 1px solid #d7dee9;
+      background: #e8edf3;
+      padding: 10px;
+    }
+
+    .path-list,
+    .pane {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      overflow: hidden;
+    }
+
+    .path-list {
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .path-list h3,
+    .pane h3 {
+      margin: 0;
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+      line-height: 1.2;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .tag {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 400;
+      white-space: nowrap;
+    }
+
+    .toolbar,
+    .pathbar {
+      padding: 8px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .mini {
+      height: 28px;
+      padding: 0 8px;
+      font-size: 12px;
+    }
+
+    .input {
+      width: 100%;
+      height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 0 8px;
+      font-family: Consolas, "Microsoft YaHei", monospace;
+      font-size: 12px;
+      color: var(--text);
+      background: #fff;
+    }
+
+    .paths {
+      padding: 10px;
+      font-family: Consolas, "Microsoft YaHei", monospace;
+      font-size: 13px;
+      line-height: 1.75;
+      white-space: pre-wrap;
+    }
+
+    .count {
+      padding: 7px 10px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      text-align: right;
+      background: #fafafa;
+    }
+
+    .panes {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .pane {
+      position: relative;
+      border-radius: 4px;
+      transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    }
+
+    .readonly {
+      background: var(--readonly);
+    }
+
+    .list {
+      padding: 8px;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      gap: 7px;
+      align-items: center;
+      min-height: 27px;
+      padding: 3px 5px;
+      border-radius: 5px;
+    }
+
+    .row:nth-child(2n) {
+      background: rgba(15, 23, 42, 0.035);
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .active-label {
+      display: none;
+      align-items: center;
+      min-height: 22px;
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .variant-a .pane.is-active {
+      border: 3px solid var(--accent);
+      box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.14), var(--shadow);
+    }
+
+    .variant-a .pane.is-active h3 {
+      padding: 7px 8px;
+      background: var(--accent-soft);
+      color: #0b4f49;
+      border-bottom-color: #99d2c8;
+    }
+
+    .variant-a .pane.is-active .active-label {
+      display: inline-flex;
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .variant-b .pane.is-active {
+      border: 2px solid #9fb8d9;
+      border-left: 8px solid var(--blue);
+      background: #fbfdff;
+      box-shadow: var(--shadow);
+    }
+
+    .variant-b .pane.is-active h3 {
+      padding-left: 7px;
+      background: var(--blue-soft);
+      color: #1d4ed8;
+    }
+
+    .variant-b .pane.is-active .active-label {
+      display: inline-flex;
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .variant-c .pane.is-active {
+      border: 4px solid var(--amber);
+      background: var(--amber-soft);
+      box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.14), var(--shadow);
+    }
+
+    .variant-c .pane.is-active h3 {
+      padding: 6px 7px;
+      background: #ffedd5;
+      color: #7c2d12;
+      border-bottom-color: #fed7aa;
+    }
+
+    .variant-c .pane.is-active .active-label {
+      display: inline-flex;
+      background: var(--amber);
+      color: #fff;
+    }
+
+    @media (max-width: 920px) {
+      main {
+        padding: 14px;
+      }
+
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .panes {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(4, 240px);
+      }
+
+      .option-head {
+        display: block;
+      }
+
+      .option-note {
+        text-align: left;
+        margin-top: 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>活动窗口高亮预览</h1>
+    <p class="summary">点击下面的按钮切换当前窗格，观察四个文件窗口的边框加粗提示效果。</p>
+
+    <div class="switcher" aria-label="切换活动窗口">
+      <button class="is-selected" data-pane="production">生产服务器</button>
+      <button data-pane="draft">起稿服务器</button>
+      <button data-pane="local">本地文件</button>
+      <button data-pane="backup">备份 / 对照</button>
+    </div>
+
+    <section class="option">
+      <div class="option-head">
+        <h2>方案 A：推荐，绿色 3px 粗边框 + 标记</h2>
+        <p class="option-note">清楚但不刺眼，和现有浅色界面、日志颜色区分较好。</p>
+      </div>
+      <div class="workspace variant-a" data-preview>
+        <aside class="path-list">
+          <h3>路径清单 <span class="tag">相对路径</span></h3>
+          <div class="paths">css/site.css
+images/logo.png
+templates/index.html
+new-folder/new-file.js</div>
+          <div class="count">4 个路径</div>
+        </aside>
+        <div class="panes">
+          <article class="pane readonly is-active" data-pane-card="production">
+            <h3>生产服务器</h3>
+            <div class="pathbar"><input class="input" value="/www/project"></div>
+            <div class="list" data-list></div>
+            <div class="count">4 项</div>
+          </article>
+          <article class="pane" data-pane-card="draft">
+            <h3>起稿服务器</h3>
+            <div class="pathbar"><input class="input" value="/www/project"></div>
+            <div class="list" data-list></div>
+            <div class="count">4 项</div>
+          </article>
+          <article class="pane" data-pane-card="local">
+            <h3>本地文件</h3>
+            <div class="pathbar"><input class="input" value="D:\Release\project"></div>
+            <div class="list" data-list></div>
+            <div class="count">4 项</div>
+          </article>
+          <article class="pane" data-pane-card="backup">
+            <h3>备份 / 对照</h3>
+            <div class="pathbar"><input class="input" value="D:\Backups\project_20260701"></div>
+            <div class="list" data-list></div>
+            <div class="count">4 项</div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="option">
+      <div class="option-head">
+        <h2>方案 B：蓝色左侧粗条 + 轻边框</h2>
+        <p class="option-note">更像文件管理器焦点条，占用空间小，但“框体加粗”的感觉弱一些。</p>
+      </div>
+      <div class="workspace variant-b" data-preview>
+        <aside class="path-list">
+          <h3>路径清单 <span class="tag">相对路径</span></h3>
+          <div class="paths">css/site.css
+images/logo.png
+templates/index.html
+new-folder/new-file.js</div>
+          <div class="count">4 个路径</div>
+        </aside>
+        <div class="panes"></div>
+      </div>
+    </section>
+
+    <section class="option">
+      <div class="option-head">
+        <h2>方案 C：橙色 4px 高对比粗边框</h2>
+        <p class="option-note">最醒目，适合误操作成本高的场景，但日常看久可能偏重。</p>
+      </div>
+      <div class="workspace variant-c" data-preview>
+        <aside class="path-list">
+          <h3>路径清单 <span class="tag">相对路径</span></h3>
+          <div class="paths">css/site.css
+images/logo.png
+templates/index.html
+new-folder/new-file.js</div>
+          <div class="count">4 个路径</div>
+        </aside>
+        <div class="panes"></div>
+      </div>
+    </section>
+  </main>
+
+  <template id="pane-template">
+    <article class="pane" data-pane-card="">
+      <h3><span data-title></span></h3>
+      <div class="pathbar"><input class="input" value=""></div>
+      <div class="list" data-list></div>
+      <div class="count">4 项</div>
+    </article>
+  </template>
+
+  <script>
+    const panes = [
+      { id: "production", title: "生产服务器", path: "/www/project", readonly: true },
+      { id: "draft", title: "起稿服务器", path: "/www/project" },
+      { id: "local", title: "本地文件", path: "D:\\Release\\project" },
+      { id: "backup", title: "备份 / 对照", path: "D:\\Backups\\project_20260701" }
+    ];
+
+    const rows = [
+      ["[D]", "css", "目录"],
+      ["[D]", "images", "目录"],
+      ["[F]", "templates/index.html", "2026-07-01"],
+      ["[F]", "config/site.json", "2026-06-30"]
+    ];
+
+    function fillRows(root) {
+      root.querySelectorAll("[data-list]").forEach(list => {
+        list.innerHTML = rows.map(row => `
+          <div class="row">
+            <span>${row[0]}</span>
+            <span>${row[1]}</span>
+            <span class="meta">${row[2]}</span>
+          </div>
+        `).join("");
+      });
+    }
+
+    function clonePanes(target) {
+      const template = document.querySelector("#pane-template");
+      target.innerHTML = "";
+      panes.forEach(pane => {
+        const node = template.content.firstElementChild.cloneNode(true);
+        node.dataset.paneCard = pane.id;
+        node.querySelector("[data-title]").textContent = pane.title;
+        node.querySelector("input").value = pane.path;
+        if (pane.readonly) {
+          node.classList.add("readonly");
+        }
+        if (pane.id === "production") {
+          node.classList.add("is-active");
+        }
+        target.appendChild(node);
+      });
+      fillRows(target);
+    }
+
+    document.querySelectorAll(".workspace .panes:empty").forEach(clonePanes);
+    fillRows(document);
+
+    document.querySelectorAll("[data-pane]").forEach(button => {
+      button.addEventListener("click", () => {
+        const active = button.dataset.pane;
+        document.querySelectorAll("[data-pane]").forEach(item => {
+          item.classList.toggle("is-selected", item.dataset.pane === active);
+        });
+        document.querySelectorAll("[data-pane-card]").forEach(card => {
+          card.classList.toggle("is-active", card.dataset.paneCard === active);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
