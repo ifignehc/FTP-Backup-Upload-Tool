@@ -116,7 +116,10 @@ public partial class MainWindow : Window
 
     private async void OnFilePanePathRefreshRequested(object sender, EventArgs e)
     {
-        await viewModel.RefreshFilePanesAsync(CancellationToken.None);
+        if (sender is FilePaneControl { DataContext: FilePaneViewModel pane })
+        {
+            await viewModel.RefreshFilePaneAsync(pane, CancellationToken.None);
+        }
     }
 
     private void OnFilePaneActivated(object sender, EventArgs e)

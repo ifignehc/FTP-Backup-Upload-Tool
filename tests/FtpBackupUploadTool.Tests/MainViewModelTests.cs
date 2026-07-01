@@ -141,6 +141,25 @@ internal static class MainViewModelTests
             "backup pane should list backup files");
     }
 
+    public static void RefreshFilePaneOnlyRefreshesRequestedPane()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-main-vm", Guid.NewGuid().ToString("N"));
+        var localRoot = Path.Combine(tempRoot, "local");
+        Directory.CreateDirectory(localRoot);
+
+        var production = new CountingRemoteFileClient();
+        var draft = new CountingRemoteFileClient(new FileEntry(RelativePath.Parse("assets"), true, 0, null));
+        var viewModel = CreateLoadedViewModel(production, draft, localRoot);
+
+        viewModel.RefreshFilePaneAsync(viewModel.DraftPane, CancellationToken.None).GetAwaiter().GetResult();
+
+        TestAssert.Equal(0, production.ListDirectoryCallCount, "refreshing the draft pane should not re-list production");
+        TestAssert.Equal(1, draft.ListDirectoryCallCount, "refreshing the draft pane should re-list draft once");
+        TestAssert.True(
+            viewModel.DraftPane.Files.Any(file => file.IsDirectory && file.DisplayName == "assets/"),
+            "the requested pane should receive the refreshed entries");
+    }
+
     public static void UploadUsesCurrentLocalPaneDirectoryAsLocalRoot()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), "ftp-tool-main-vm", Guid.NewGuid().ToString("N"));
@@ -307,6 +326,34 @@ internal static class MainViewModelTests
         return viewModel;
     }
 
+    private static MainViewModel CreateLoadedViewModel(
+        IRemoteFileClient production,
+        IRemoteFileClient draft,
+        string configuredLocalRoot)
+    {
+        var viewModel = new MainViewModel(
+            new BackupService(production, new BackupLogWriter()),
+            new UploadService(draft, configuredLocalRoot),
+            new CheckService(production, draft, configuredLocalRoot));
+        var config = new ProcessConfig(
+            "test",
+            new ServerConfig("prod", 21, "prod-user", string.Empty, "/www"),
+            new ServerConfig("draft", 21, "draft-user", string.Empty, "/www"),
+            configuredLocalRoot,
+            string.Empty,
+            new BackupConfig(Path.GetTempPath(), "{yyyy}{MM}{dd}", LogFieldOptions.All),
+            new CheckLogConfig(Path.GetTempPath(), "{yyyy}{MM}{dd}_{HH}{mm}{ss}_Check"));
+        var services = new WorkflowServices(
+            new BackupService(production, new BackupLogWriter()),
+            new UploadService(draft, configuredLocalRoot),
+            new CheckService(production, draft, configuredLocalRoot),
+            production,
+            draft);
+
+        viewModel.LoadProcess(config, services);
+        return viewModel;
+    }
+
     private static void RunPrivateWorkflow(MainViewModel viewModel, string methodName)
     {
         var method = typeof(MainViewModel).GetMethod(
@@ -314,5 +361,58 @@ internal static class MainViewModelTests
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         TestAssert.True(method is not null, $"{methodName} should exist");
         ((Task)method!.Invoke(viewModel, Array.Empty<object>())!).GetAwaiter().GetResult();
+    }
+
+    private sealed class CountingRemoteFileClient : IRemoteFileClient
+    {
+        private readonly IReadOnlyList<FileEntry> files;
+
+        public CountingRemoteFileClient(params FileEntry[] files)
+        {
+            this.files = files;
+        }
+
+        public int ListDirectoryCallCount { get; private set; }
+
+        public Task<IReadOnlyList<FileEntry>> ListDirectoryAsync(RelativePath? directory, CancellationToken cancellationToken)
+        {
+            ListDirectoryCallCount++;
+            return Task.FromResult(files);
+        }
+
+        public Task<IReadOnlyList<FileEntry>> ListRecursiveAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(files);
+        }
+
+        public Task<FileEntry?> GetFileEntryAsync(RelativePath path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(files.FirstOrDefault(file => file.Path.Value == path.Value));
+        }
+
+        public Task<bool> FileExistsAsync(RelativePath path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(files.Any(file => !file.IsDirectory && file.Path.Value == path.Value));
+        }
+
+        public Task<bool> DirectoryExistsAsync(RelativePath path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(files.Any(file => file.IsDirectory && file.Path.Value == path.Value));
+        }
+
+        public Task DownloadAsync(RelativePath path, Stream destination, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task UploadAsync(RelativePath path, Stream source, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task DeleteFileAsync(RelativePath path, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

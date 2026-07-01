@@ -52,6 +52,7 @@ var tests = new Action[]
     MainViewModelTests.PathListTextChangeRaisesWorkflowCommandCanExecuteChanged,
     MainViewModelTests.LoadProcessInitializesBackupPaneFromBackupDirectory,
     MainViewModelTests.RefreshFilePanesListsBackupPaneDirectory,
+    MainViewModelTests.RefreshFilePaneOnlyRefreshesRequestedPane,
     MainViewModelTests.UploadUsesCurrentLocalPaneDirectoryAsLocalRoot,
     MainViewModelTests.CheckUsesCurrentLocalPaneDirectoryAsLocalRoot,
     MainViewModelTests.CheckWritesConfiguredMarkdownLog,

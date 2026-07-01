@@ -229,6 +229,34 @@ public sealed class MainViewModel : INotifyPropertyChanged
         RefreshLocalPane(BackupPane, BackupPane.CurrentPath, "备份");
     }
 
+    public async Task RefreshFilePaneAsync(FilePaneViewModel pane, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(pane);
+
+        if (currentProcess is null || currentServices is null)
+        {
+            pane.ReplaceFiles(Array.Empty<FileEntry>());
+            return;
+        }
+
+        if (ReferenceEquals(pane, ProductionPane))
+        {
+            await RefreshRemotePaneAsync("生产服务器", ProductionPane, currentServices.ProductionClient, cancellationToken);
+        }
+        else if (ReferenceEquals(pane, DraftPane))
+        {
+            await RefreshRemotePaneAsync("起案服务器", DraftPane, currentServices.DraftClient, cancellationToken);
+        }
+        else if (ReferenceEquals(pane, LocalPane))
+        {
+            RefreshLocalPane(LocalPane, GetCurrentLocalRoot(), "本地");
+        }
+        else if (ReferenceEquals(pane, BackupPane))
+        {
+            RefreshLocalPane(BackupPane, BackupPane.CurrentPath, "备份");
+        }
+    }
+
     private IReadOnlyList<RelativePath> ParsePaths() => PathListParser.Parse(PathListText);
 
     private IReadOnlyList<RelativePath> ParsePathsForDisplay()
